@@ -151,7 +151,7 @@ export default function CreateSurvey() {
           } else if (q.type === 'checkboxes') {
             options = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false };
           } else if (q.type === 'rating_scale' && q.reference_number) {
-            options = { reference_number: q.reference_number };
+            options = { has_calculator: true };
           } else if (q.type === 'section_header') {
             options = { description: q.section_description || '', attachments: q.attachments || [] };
           }
@@ -290,13 +290,11 @@ export default function CreateSurvey() {
                   </label>
                 )}
                 {q.type === 'rating_scale' && (
-                  <label className="flex items-center">
-                    <span className="mr-2">Reference Number:</span>
-                    <input type="number" min={1}
-                      value={q.reference_number || ''}
-                      onChange={(e) => updateQuestion(q.id, 'reference_number', e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="w-24 p-1 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-center"
-                      placeholder="e.g. 100" />
+                  <label className="flex items-center cursor-pointer">
+                    <input type="checkbox" checked={q.reference_number === 1}
+                      onChange={(e) => updateQuestion(q.id, 'reference_number', e.target.checked ? 1 : undefined)}
+                      className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                    Enable reference number calculator
                   </label>
                 )}
               </div>

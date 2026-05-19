@@ -13,6 +13,7 @@ export default function SurveyPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
+  const [refNumbers, setRefNumbers] = useState<Record<string, number | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -152,7 +153,7 @@ export default function SurveyPage() {
       choices: q.options.choices || [],
       has_other: q.options.has_other || false,
       max_selections: q.options.max_selections,
-      reference_number: q.options.reference_number,
+      has_calculator: q.options.has_calculator || q.options.reference_number ? true : false,
       description: q.options.description || '',
       attachments: q.options.attachments || [],
     };
@@ -251,9 +252,19 @@ export default function SurveyPage() {
                   <div className="text-4xl sm:text-5xl font-extrabold text-[var(--color-cyc-primary)] mb-2">
                     {answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50}%
                   </div>
-                  {opts.reference_number && (
-                    <div className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4">
-                      {Math.round(((answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50) / 100) * opts.reference_number)} out of {opts.reference_number}
+                  {opts.has_calculator && refNumbers[currentQuestion.id] !== undefined && (
+                    <div className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-2">
+                      {Math.round(((answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50) / 100) * (refNumbers[currentQuestion.id] || 0))} out of {refNumbers[currentQuestion.id]}
+                    </div>
+                  )}
+                  {opts.has_calculator && (
+                    <div className="mb-4 flex items-center space-x-2">
+                      <label className="text-sm font-medium text-gray-600">Enter a number:</label>
+                      <input type="number" min={0}
+                        value={refNumbers[currentQuestion.id] ?? ''}
+                        onChange={(e) => setRefNumbers({...refNumbers, [currentQuestion.id]: e.target.value ? Number(e.target.value) : undefined})}
+                        className="w-28 p-1.5 border-2 border-gray-200 rounded-lg text-center focus:border-[var(--color-cyc-primary)] focus:outline-none font-bold"
+                        placeholder="e.g. 100" />
                     </div>
                   )}
                   <input type="range" min="0" max="100"
