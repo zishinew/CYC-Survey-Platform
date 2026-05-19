@@ -32,6 +32,26 @@ export default function SurveyPage() {
           setAlreadyCompleted(true);
         }
         setSurvey(data);
+
+        // Auto-resume from localStorage if present
+        const savedSession = localStorage.getItem(`cyc_session_${data.id}`);
+        if (savedSession) {
+          try {
+            const parsed = JSON.parse(savedSession);
+            if (parsed.sessionId) {
+              setSessionId(parsed.sessionId);
+              setEmail(parsed.email || '');
+              setAnswers(parsed.answers || {});
+              setOtherTexts(parsed.otherTexts || {});
+              setRefNumbers(parsed.refNumbers || {});
+              setCurrentStep(parsed.currentStep !== undefined ? parsed.currentStep : 1);
+              setHasStarted(true);
+            }
+          } catch (e) {
+            console.error("Failed to parse cached session", e);
+          }
+        }
+        
         setLoading(false);
       })
       .catch(err => {
@@ -40,6 +60,52 @@ export default function SurveyPage() {
         setLoading(false);
       });
   }, [params.id]);
+
+  // Sync state changes to localStorage for robust resume support
+  useEffect(() => {
+    if (survey && sessionId) {
+      localStorage.setItem(`cyc_session_${survey.id}`, JSON.stringify({
+        sessionId,
+        email,
+        answers,
+        otherTexts,
+        refNumbers,
+        currentStep
+      }));
+    }
+  }, [survey, sessionId, email, answers, otherTexts, refNumbers, currentStep]);
+
+  // Auto-save the active question's answer to the database in the background on change
+  useEffect(() => {
+    if (survey && sessionId && currentStep > 0) {
+      const currentQuestion = survey.questions[currentStep - 1];
+      if (currentQuestion && currentQuestion.type !== 'section_header') {
+        const val = answers[currentQuestion.id];
+        if (val !== undefined) {
+          const body: any = { question_id: currentQuestion.id };
+          if (currentQuestion.type === 'multiple_choice' || currentQuestion.type === 'short_answer') {
+            body.answer_text = val;
+          } else if (currentQuestion.type === 'rating_scale' || currentQuestion.type === 'likert_scale') {
+            body.answer_numeric = val;
+          } else if (currentQuestion.type === 'checkboxes') {
+            body.answer_options = val;
+          }
+
+          // Debounce text area auto-save to avoid spamming the DB on every single keystroke
+          const delay = currentQuestion.type === 'short_answer' ? 1000 : 0;
+          const timeout = setTimeout(() => {
+            fetch(`/api/sessions/${sessionId}/answers`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            }).catch(() => {});
+          }, delay);
+
+          return () => clearTimeout(timeout);
+        }
+      }
+    }
+  }, [answers, sessionId, currentStep, survey]);
 
   if (loading) {
     return (
@@ -170,6 +236,10 @@ export default function SurveyPage() {
         completedSurveys.push(survey.id);
         localStorage.setItem('cyc_completed_surveys', JSON.stringify(completedSurveys));
       }
+      
+      // Clear the saved session cache upon successful completion
+      localStorage.removeItem(`cyc_session_${survey.id}`);
+      
       router.push('/thank-you');
     } catch (err) {
       console.error("Submission error", err);
