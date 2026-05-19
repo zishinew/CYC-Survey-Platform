@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: 'CYC Surveys <no-reply@thecyc.org>',
+          from: process.env.RESEND_FROM_EMAIL || 'CYC Surveys <onboarding@resend.dev>',
           to: [email],
           subject: `You're almost done! ${remainingCount > 0 ? `${remainingCount} survey${remainingCount > 1 ? 's' : ''} still waiting` : 'Finish your survey'}`,
           html
