@@ -63,12 +63,26 @@ export async function GET(request: NextRequest) {
 
     for (const [email, sessions] of Object.entries(byEmail)) {
       const completed = completedMap[email] || new Set();
+      
+      // remainingSurveys: all active surveys that aren't completed yet
       const remainingSurveys = activeSurveys.filter((s: any) => !completed.has(s.id));
+      
+      // Get titles of all unfinished surveys currently in progress for this email
       const incompleteTitles = sessions
         .map((s: any) => activeSurveys.find((sv: any) => sv.id === s.survey_id)?.title)
         .filter(Boolean);
 
-      const remainingCount = remainingSurveys.length;
+      const unfinishedCount = sessions.length;
+      
+      // Set of unfinished survey IDs to identify which remaining ones haven't been started at all
+      const unfinishedSurveyIds = new Set(sessions.map((s: any) => s.survey_id));
+      const unstartedCount = remainingSurveys.filter((s: any) => !unfinishedSurveyIds.has(s.id)).length;
+
+      const subjectText = unfinishedCount > 0 && unstartedCount > 0
+        ? `You have ${unfinishedCount} unfinished and ${unstartedCount} new survey${unstartedCount > 1 ? 's' : ''} waiting`
+        : unfinishedCount > 0
+          ? `You have ${unfinishedCount} unfinished survey${unfinishedCount > 1 ? 's' : ''} waiting`
+          : `You have ${unstartedCount} new survey${unstartedCount > 1 ? 's' : ''} waiting`;
 
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Helvetica Neue',Arial,sans-serif;">
@@ -79,14 +93,17 @@ export async function GET(request: NextRequest) {
     <div style="padding:32px 40px;">
       <h2 style="color:#04377E;font-size:20px;margin:0 0 16px;">You're almost there! 🎯</h2>
       <p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 20px;">
-        We noticed you started ${incompleteTitles.length > 0 ? `<strong>${incompleteTitles[0]}</strong>` : 'a survey'} but didn't get a chance to finish. Your responses have been saved — pick up right where you left off!
+        We noticed you didn't get a chance to finish some of your active surveys. Your responses have been saved — pick up right where you left off!
       </p>
-      ${remainingCount > 0 ? `
-      <div style="background:#f0fdf4;border-left:4px solid #0CB7C4;padding:14px 18px;border-radius:8px;margin:0 0 24px;">
-        <p style="color:#04377E;font-size:14px;margin:0;font-weight:600;">
-          📋 You have ${remainingCount} active survey${remainingCount > 1 ? 's' : ''} remaining to complete.
-        </p>
-      </div>` : ''}
+      
+      <div style="background:#f0fdf4;border-left:4px solid #0CB7C4;padding:16px 20px;border-radius:8px;margin:0 0 24px;">
+        <p style="color:#04377E;font-size:15px;margin:0 0 8px;font-weight:700;">📋 Remaining Surveys:</p>
+        <ul style="color:#04377E;font-size:14px;margin:0;padding-left:20px;line-height:1.6;">
+          ${unfinishedCount > 0 ? `<li><strong>${unfinishedCount}</strong> unfinished survey${unfinishedCount > 1 ? 's' : ''}</li>` : ''}
+          ${unstartedCount > 0 ? `<li><strong>${unstartedCount}</strong> new survey${unstartedCount > 1 ? 's' : ''} waiting to be started</li>` : ''}
+        </ul>
+      </div>
+
       <div style="text-align:center;margin:28px 0;">
         <a href="${SITE_URL}" style="display:inline-block;background:linear-gradient(135deg,#F5C518,#f0b400);color:#04377E;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(245,197,24,0.4);">
           Continue Your Surveys →
@@ -106,7 +123,7 @@ export async function GET(request: NextRequest) {
         await transporter.sendMail({
           from: `CYC Surveys <${GMAIL_USER}>`,
           to: email,
-          subject: `You're almost done! ${remainingCount > 0 ? `${remainingCount} survey${remainingCount > 1 ? 's' : ''} still waiting` : 'Finish your survey'}`,
+          subject: subjectText,
           html
         });
 
