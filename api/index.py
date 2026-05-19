@@ -269,6 +269,58 @@ async def submit_response(survey_id: str, submission: ResponseSubmission):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/surveys/{survey_id}/results")
+async def get_survey_results(survey_id: str):
+    """Get all responses and answers for a survey, grouped by session."""
+    try:
+        # Fetch survey with questions
+        survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
+        if not survey_res.data:
+            raise HTTPException(status_code=404, detail="Survey not found")
+        survey = survey_res.data[0]
+
+        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
+        questions = questions_res.data
+
+        # Fetch all sessions for this survey
+        sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True).execute()
+        sessions = sessions_res.data
+
+        # Fetch all answers for all sessions in one query
+        session_ids = [s["id"] for s in sessions]
+        all_answers = []
+        if session_ids:
+            answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+            all_answers = answers_res.data
+
+        # Group answers by session
+        answers_by_session = {}
+        for a in all_answers:
+            sid = a["session_id"]
+            if sid not in answers_by_session:
+                answers_by_session[sid] = []
+            answers_by_session[sid].append(a)
+
+        # Build response objects
+        responses = []
+        for s in sessions:
+            responses.append({
+                "session_id": s["id"],
+                "completed_at": s.get("completed_at"),
+                "answers": answers_by_session.get(s["id"], [])
+            })
+
+        return {
+            "survey": survey,
+            "questions": questions,
+            "responses": responses,
+            "total_responses": len(sessions)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/api/surveys/{survey_id}")
 async def delete_survey(survey_id: str):
     """Delete a survey and all its associated data (cascade)."""

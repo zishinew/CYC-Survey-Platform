@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PlusCircle, Users, Clock, LogOut, Edit3, Lock, Power, Trash2 } from 'lucide-react';
+import { PlusCircle, Users, Clock, LogOut, Edit3, Lock, Power, Trash2, BarChart3 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [surveys, setSurveys] = useState<any[]>([]);
@@ -145,6 +145,11 @@ export default function AdminDashboard() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-3">
+                    <Link href={`/admin/results/${survey.id}`} className="text-[var(--color-cyc-secondary)] hover:text-blue-700 flex items-center">
+                      <BarChart3 className="w-4 h-4 mr-1" />
+                      Results
+                    </Link>
+
                     <button 
                       onClick={() => handleToggleActive(survey)}
                       className={`flex items-center ${survey.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-600 hover:text-green-800'}`}
