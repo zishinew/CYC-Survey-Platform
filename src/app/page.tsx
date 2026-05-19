@@ -107,7 +107,7 @@ export default function Home() {
     type: "tween",
     ease: "anticipate",
     duration: 0.4
-  };
+  } as const;
 
   // Welcome Screen State
   if (!hasStarted) {
