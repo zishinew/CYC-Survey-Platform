@@ -12,6 +12,7 @@ export default function SurveyPage() {
   const [hasStarted, setHasStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0 = email, 1+ = questions
   const [email, setEmail] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
   const [refNumbers, setRefNumbers] = useState<Record<string, number | undefined>>({});
@@ -74,18 +75,80 @@ export default function SurveyPage() {
 
   const totalSteps = survey.questions.length + 1; // +1 for email
 
-  const handleNext = () => {
-    // Validate email on step 0
+  // Save the current answer to backend
+  const saveCurrentAnswer = async (sid: string, questionIdx: number) => {
+    const question = survey.questions[questionIdx];
+    if (!question || question.type === 'section_header') return;
+    const val = answers[question.id];
+    if (val === undefined) return;
+
+    const body: any = { question_id: question.id };
+    if (question.type === 'multiple_choice' || question.type === 'short_answer') {
+      body.answer_text = val;
+    } else if (question.type === 'rating_scale' || question.type === 'likert_scale') {
+      body.answer_numeric = val;
+    } else if (question.type === 'checkboxes') {
+      body.answer_options = val;
+    }
+
+    await fetch(`/api/sessions/${sid}/answers`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).catch(() => {});
+  };
+
+  const handleNext = async () => {
+    // Step 0: create/resume session
     if (currentStep === 0) {
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         alert('Please enter a valid email address.');
         return;
       }
+      try {
+        const res = await fetch(`/api/surveys/${survey.id}/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        setSessionId(data.session_id);
+
+        if (data.resumed && data.saved_answers?.length > 0) {
+          // Restore saved answers
+          const restored: Record<string, any> = {};
+          for (const a of data.saved_answers) {
+            if (a.answer_options) restored[a.question_id] = a.answer_options;
+            else if (a.answer_numeric !== null && a.answer_numeric !== undefined) restored[a.question_id] = a.answer_numeric;
+            else if (a.answer_text) restored[a.question_id] = a.answer_text;
+          }
+          setAnswers(restored);
+          setCurrentStep(data.current_step > 0 ? data.current_step : 1);
+          return;
+        }
+      } catch {
+        alert('Failed to start session. Please try again.');
+        return;
+      }
+      setCurrentStep(1);
+      return;
     }
+
+    // Save current answer before moving
+    if (sessionId) {
+      await saveCurrentAnswer(sessionId, currentStep - 1);
+      // Update step on server
+      fetch(`/api/sessions/${sessionId}/step`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_step: currentStep + 1 })
+      }).catch(() => {});
+    }
+
     if (currentStep < totalSteps - 1) {
       setCurrentStep(curr => curr + 1);
     } else {
-      submitSurvey();
+      await finishSurvey();
     }
   };
 
@@ -93,29 +156,15 @@ export default function SurveyPage() {
     if (currentStep > 0) setCurrentStep(curr => curr - 1);
   };
 
-  const submitSurvey = async () => {
+  const finishSurvey = async () => {
     setSubmitting(true);
     try {
-      const formattedAnswers = Object.entries(answers).map(([qId, val]) => {
-        const question = survey.questions.find((q: any) => q.id === qId);
-        const ans: any = { question_id: qId };
-        if (question?.type === 'multiple_choice' || question?.type === 'short_answer') {
-          ans.answer_text = val as string;
-        } else if (question?.type === 'rating_scale' || question?.type === 'likert_scale') {
-          ans.answer_numeric = val as number;
-        } else if (question?.type === 'checkboxes') {
-          ans.answer_options = val as string[];
-        }
-        return ans;
-      });
+      if (sessionId) {
+        // Save last answer then mark complete
+        await saveCurrentAnswer(sessionId, currentStep - 1);
+        await fetch(`/api/sessions/${sessionId}/complete`, { method: 'PATCH' });
+      }
 
-      const res = await fetch(`/api/surveys/${survey.id}/responses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ survey_id: survey.id, email, answers: formattedAnswers })
-      });
-
-      if (!res.ok) throw new Error("Failed to submit");
       const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
       if (!completedSurveys.includes(survey.id)) {
         completedSurveys.push(survey.id);

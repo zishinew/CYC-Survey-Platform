@@ -257,11 +257,99 @@ async def update_survey(survey_id: str, survey: SurveyCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class SessionCreate(BaseModel):
+    email: str
+
+class AnswerUpsert(BaseModel):
+    question_id: str
+    answer_text: Optional[str] = None
+    answer_numeric: Optional[int] = None
+    answer_options: Optional[Any] = None
+
+@app.post("/api/surveys/{survey_id}/sessions")
+async def create_session(survey_id: str, body: SessionCreate):
+    """Create a new partial response session when user enters their email."""
+    try:
+        # Check if there's already an incomplete session for this email + survey
+        existing = supabase.table("response_sessions").select("id", "current_step").eq(
+            "survey_id", survey_id
+        ).eq("email", body.email).eq("is_completed", False).execute()
+
+        if existing.data:
+            # Return existing session for resume
+            session = existing.data[0]
+            # Fetch saved answers
+            answers_res = supabase.table("answers").select("*").eq("session_id", session["id"]).execute()
+            return {"session_id": session["id"], "current_step": session.get("current_step", 0), "saved_answers": answers_res.data, "resumed": True}
+
+        session_res = supabase.table("response_sessions").insert({
+            "survey_id": survey_id,
+            "email": body.email,
+            "is_completed": False,
+            "current_step": 0
+        }).execute()
+
+        return {"session_id": session_res.data[0]["id"], "current_step": 0, "saved_answers": [], "resumed": False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/sessions/{session_id}/answers")
+async def upsert_answer(session_id: str, body: AnswerUpsert):
+    """Save or update a single answer for a session (auto-save on Next)."""
+    try:
+        # Check if answer already exists for this session + question
+        existing = supabase.table("answers").select("id").eq(
+            "session_id", session_id
+        ).eq("question_id", body.question_id).execute()
+
+        if existing.data:
+            # Update existing
+            supabase.table("answers").update({
+                "answer_text": body.answer_text,
+                "answer_numeric": body.answer_numeric,
+                "answer_options": body.answer_options
+            }).eq("id", existing.data[0]["id"]).execute()
+        else:
+            # Insert new
+            supabase.table("answers").insert({
+                "session_id": session_id,
+                "question_id": body.question_id,
+                "answer_text": body.answer_text,
+                "answer_numeric": body.answer_numeric,
+                "answer_options": body.answer_options
+            }).execute()
+
+        return {"status": "saved"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/sessions/{session_id}/step")
+async def update_step(session_id: str, body: dict):
+    """Update the current step for a session (for resume)."""
+    try:
+        supabase.table("response_sessions").update({
+            "current_step": body.get("current_step", 0)
+        }).eq("id", session_id).execute()
+        return {"status": "updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/sessions/{session_id}/complete")
+async def complete_session(session_id: str):
+    """Mark a session as complete."""
+    try:
+        supabase.table("response_sessions").update({
+            "is_completed": True,
+            "completed_at": datetime.utcnow().isoformat()
+        }).eq("id", session_id).execute()
+        return {"status": "completed"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/surveys/{survey_id}/responses")
 async def submit_response(survey_id: str, submission: ResponseSubmission):
-    """Submit a response to a survey"""
+    """Legacy: Submit a full response at once (fallback)."""
     try:
-        # 1. Create a response session
         session_res = supabase.table("response_sessions").insert({
             "survey_id": survey_id,
             "email": submission.email,
@@ -271,7 +359,6 @@ async def submit_response(survey_id: str, submission: ResponseSubmission):
         
         session_id = session_res.data[0]["id"]
         
-        # 2. Insert all answers
         answers_to_insert = []
         for answer in submission.answers:
             answers_to_insert.append({
