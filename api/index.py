@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
@@ -45,6 +45,7 @@ class SurveyList(BaseModel):
     estimated_minutes: int
     is_active: bool
     has_been_published: bool = False
+    thumbnail_url: Optional[str] = None
     response_count: Optional[int] = 0
 
 class SurveyDetail(SurveyList):
@@ -61,6 +62,29 @@ class ResponseSubmission(BaseModel):
     answers: List[AnswerCreate]
 
 # Routes
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file to Supabase Storage and return the public URL."""
+    try:
+        content = await file.read()
+        ext = file.filename.split('.')[-1] if file.filename else 'bin'
+        filename = f"{uuid.uuid4()}.{ext}"
+        path = f"uploads/{filename}"
+
+        supabase.storage.from_("survey-assets").upload(
+            path,
+            content,
+            file_options={"content-type": file.content_type or "application/octet-stream"}
+        )
+
+        public_url = supabase.storage.from_("survey-assets").get_public_url(path)
+        return {"url": public_url, "filename": file.filename}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/surveys", response_model=List[SurveyList])
 async def get_surveys(include_inactive: bool = False):
     """Get surveys and their response counts"""
@@ -129,6 +153,7 @@ class SurveyCreate(BaseModel):
     estimated_minutes: int = 5
     is_active: bool = True
     has_been_published: bool = False
+    thumbnail_url: Optional[str] = None
     questions: List[QuestionCreate]
 
 @app.post("/api/surveys", response_model=SurveyDetail)
@@ -143,7 +168,8 @@ async def create_survey(survey: SurveyCreate):
             "description": survey.description,
             "estimated_minutes": survey.estimated_minutes,
             "is_active": survey.is_active,
-            "has_been_published": has_been_published
+            "has_been_published": has_been_published,
+            "thumbnail_url": survey.thumbnail_url
         }).execute()
         
         created_survey = survey_res.data[0]
@@ -195,6 +221,7 @@ async def update_survey(survey_id: str, survey: SurveyCreate):
             "estimated_minutes": survey.estimated_minutes,
             "is_active": survey.is_active,
             "has_been_published": has_been_published,
+            "thumbnail_url": survey.thumbnail_url,
             "updated_at": datetime.utcnow().isoformat()
         }).eq("id", survey_id).execute()
         

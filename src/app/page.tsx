@@ -65,8 +65,14 @@ export default function Home() {
               transition={{ duration: 0.4, delay: idx * 0.1 }}
             >
               <div className={`relative bg-white rounded-2xl shadow-md border overflow-hidden transition-all duration-300 ${isCompleted ? 'border-green-200 opacity-80' : 'border-gray-200 hover:shadow-xl hover:-translate-y-1'}`}>
-                {/* Top accent bar */}
-                <div className={`h-1.5 w-full ${isCompleted ? 'bg-green-400' : 'bg-[var(--color-cyc-accent)]'}`} />
+                {/* Thumbnail */}
+                {survey.thumbnail_url ? (
+                  <div className="w-full h-36 overflow-hidden">
+                    <img src={survey.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className={`h-1.5 w-full ${isCompleted ? 'bg-green-400' : 'bg-[var(--color-cyc-accent)]'}`} />
+                )}
 
                 <div className="p-6">
                   {/* Completed badge */}
