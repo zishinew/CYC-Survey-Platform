@@ -135,12 +135,7 @@ class SurveyCreate(BaseModel):
 async def create_survey(survey: SurveyCreate):
     """Create a new survey and its questions"""
     try:
-        # Enforce single active survey
-        if survey.is_active:
-            supabase.table("surveys").update({"is_active": False}).neq("is_active", False).execute()
-            has_been_published = True
-        else:
-            has_been_published = False
+        has_been_published = survey.is_active
 
         # 1. Create Survey
         survey_res = supabase.table("surveys").insert({
@@ -187,15 +182,11 @@ async def update_survey(survey_id: str, survey: SurveyCreate):
         if not existing_res.data:
             raise HTTPException(status_code=404, detail="Survey not found")
         
+        # Enforce editing lock
         if existing_res.data[0]["has_been_published"]:
             raise HTTPException(status_code=400, detail="Cannot edit a survey that has been published and locked.")
 
-        # Enforce single active survey
-        if survey.is_active:
-            supabase.table("surveys").update({"is_active": False}).neq("id", survey_id).execute()
-            has_been_published = True
-        else:
-            has_been_published = False
+        has_been_published = survey.is_active or existing_res.data[0]["has_been_published"]
 
         # 2. Update Survey
         survey_res = supabase.table("surveys").update({
@@ -358,7 +349,7 @@ async def delete_survey(survey_id: str):
 
 @app.patch("/api/surveys/{survey_id}/toggle", response_model=SurveyList)
 async def toggle_survey_status(survey_id: str):
-    """Toggle a survey's active status. Deactivates all others if activating."""
+    """Toggle a survey's active status."""
     try:
         existing = supabase.table("surveys").select("is_active", "has_been_published").eq("id", survey_id).execute()
         if not existing.data:
@@ -366,10 +357,6 @@ async def toggle_survey_status(survey_id: str):
             
         current = existing.data[0]
         new_status = not current["is_active"]
-        
-        if new_status:
-            # Setting to active: deactivate all others
-            supabase.table("surveys").update({"is_active": False}).neq("id", survey_id).execute()
             
         res = supabase.table("surveys").update({
             "is_active": new_status,

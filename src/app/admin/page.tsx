@@ -29,7 +29,7 @@ export default function AdminDashboard() {
   const handleToggleActive = async (survey: any) => {
     if (!survey.is_active) {
       const confirmed = window.confirm(
-        "WARNING: Activating this survey will instantly DEACTIVATE all other currently active surveys, and PERMANENTLY LOCK this survey from future edits. Are you sure you want to proceed?"
+        "WARNING: Activating this survey will make it visible to users and PERMANENTLY LOCK it from future edits. Are you sure you want to proceed?"
       );
       if (!confirmed) return;
     }

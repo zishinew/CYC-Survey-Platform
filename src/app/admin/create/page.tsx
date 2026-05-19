@@ -80,7 +80,7 @@ export default function CreateSurvey() {
     // Warning for activating a survey
     if (isActive) {
       const confirmed = window.confirm(
-        "WARNING: Publishing this survey as ACTIVE will immediately DEACTIVATE all other currently active surveys, and PERMANENTLY LOCK this survey from future edits. Are you sure you want to proceed?"
+        "WARNING: Publishing this survey as ACTIVE will make it visible to users and PERMANENTLY LOCK it from future edits. Are you sure you want to proceed?"
       );
       if (!confirmed) return;
     }
