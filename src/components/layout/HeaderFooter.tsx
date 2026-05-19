@@ -8,18 +8,18 @@ export function Header() {
       <div className="w-full h-[calc(100%-0.375rem)] px-4 sm:px-8">
         <div className="flex justify-between items-center h-full">
           <Link href="/" className="flex items-center h-full py-1">
-            <Image 
-              src="/logo.jpg" 
-              alt="CYC Logo" 
-              width={250} 
-              height={70} 
+            <Image
+              src="/logo.png"
+              alt="CYC Logo"
+              width={250}
+              height={70}
               className="object-contain h-full w-auto"
               priority
             />
           </Link>
           <nav className="flex space-x-6">
-            <Link 
-              href="/admin" 
+            <Link
+              href="/admin"
               className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-semibold transition-colors"
             >
               Admin
