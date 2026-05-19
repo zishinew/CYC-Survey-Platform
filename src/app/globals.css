@@ -3,11 +3,11 @@
 @theme {
   --color-cyc-primary: #00AEBD;
   --color-cyc-secondary: #1A2B5F;
-  --color-cyc-accent: #F5C518;
+  --color-cyc-accent: #FEDF5B;
   --color-cyc-bg: #FFFFFF;
   --color-cyc-divider: #F3F4F6;
-  --color-cyc-text-heading: #1A2B5F;
-  --color-cyc-text-body: #374151;
+  --color-cyc-text-heading: #04377E;
+  --color-cyc-text-body: #0CB7C4;
 }
 
 body {
@@ -15,7 +15,12 @@ body {
   color: var(--color-cyc-text-body);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: var(--color-cyc-text-heading);
 }
 
