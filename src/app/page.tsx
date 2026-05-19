@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle2 } from 'lucide-react';
 export default function Home() {
   const router = useRouter();
   const [survey, setSurvey] = useState<any>(null);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -25,6 +26,11 @@ export default function Home() {
       })
       .then(res => res.json())
       .then(data => {
+        // Check if user has already completed this survey
+        const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
+        if (completedSurveys.includes(data.id)) {
+          setAlreadyCompleted(true);
+        }
         setSurvey(data);
         setLoading(false);
       })
@@ -47,6 +53,24 @@ export default function Home() {
     return (
       <div className="flex-1 flex justify-center items-center text-center p-4">
         <h1 className="text-2xl font-bold text-gray-500">{error}</h1>
+      </div>
+    );
+  }
+
+  if (alreadyCompleted) {
+    return (
+      <div className="flex-1 flex flex-col justify-center items-center px-4 w-full max-w-3xl mx-auto text-center h-full">
+        <div className="bg-white p-8 md:p-12 rounded-2xl shadow-xl border-t-4 border-t-[var(--color-cyc-primary)] max-w-2xl w-full">
+          <div className="mx-auto flex justify-center items-center w-20 h-20 bg-teal-50 rounded-full mb-6">
+            <CheckCircle2 className="w-12 h-12 text-[var(--color-cyc-primary)]" />
+          </div>
+          <h1 className="text-3xl font-extrabold text-[var(--color-cyc-secondary)] mb-4">
+            Already Completed
+          </h1>
+          <p className="text-lg text-gray-600 leading-relaxed">
+            You have already submitted your response for <strong>{survey.title}</strong>. Thank you for participating!
+          </p>
+        </div>
       </div>
     );
   }
@@ -89,6 +113,14 @@ export default function Home() {
       });
 
       if (!res.ok) throw new Error("Failed to submit");
+
+      // Mark this survey as completed in localStorage
+      const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
+      if (!completedSurveys.includes(survey.id)) {
+        completedSurveys.push(survey.id);
+        localStorage.setItem('cyc_completed_surveys', JSON.stringify(completedSurveys));
+      }
+
       router.push('/thank-you');
     } catch (err) {
       console.error("Submission error", err);
