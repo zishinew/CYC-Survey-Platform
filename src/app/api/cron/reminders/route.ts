@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret (Vercel sets this automatically for cron jobs)
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  const GMAIL_USER = process.env.GMAIL_USER;
+  const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
   const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://survey.thecyc.org';
 
-  if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD || !SUPABASE_URL || !SUPABASE_KEY) {
     return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
   }
 
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD }
+  });
+
   try {
-    // 1. Find incomplete sessions older than 48 hours that haven't been reminded
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
     const sessionsRes = await fetch(
@@ -30,28 +35,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'No reminders needed', sent: 0 });
     }
 
-    // 2. Get all active surveys for the "remaining surveys" count
     const surveysRes = await fetch(
       `${SUPABASE_URL}/rest/v1/surveys?is_active=eq.true&select=id,title`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
     );
     const activeSurveys = await surveysRes.json();
 
-    // 3. Get all completed sessions to know what each email has finished
     const completedRes = await fetch(
       `${SUPABASE_URL}/rest/v1/response_sessions?is_completed=eq.true&select=email,survey_id`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
     );
     const completedSessions = await completedRes.json();
 
-    // Build a map: email -> set of completed survey IDs
     const completedMap: Record<string, Set<string>> = {};
     for (const s of completedSessions || []) {
       if (!completedMap[s.email]) completedMap[s.email] = new Set();
       completedMap[s.email].add(s.survey_id);
     }
 
-    // 4. Group incomplete sessions by email
     const byEmail: Record<string, typeof incompleteSessions> = {};
     for (const s of incompleteSessions) {
       if (!byEmail[s.email]) byEmail[s.email] = [];
@@ -69,11 +70,7 @@ export async function GET(request: NextRequest) {
 
       const remainingCount = remainingSurveys.length;
 
-      // Build email HTML
-      const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:'Helvetica Neue',Arial,sans-serif;">
   <div style="max-width:560px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
     <div style="background:linear-gradient(135deg,#04377E,#0CB7C4);padding:32px 40px;">
@@ -89,8 +86,7 @@ export async function GET(request: NextRequest) {
         <p style="color:#04377E;font-size:14px;margin:0;font-weight:600;">
           📋 You have ${remainingCount} active survey${remainingCount > 1 ? 's' : ''} remaining to complete.
         </p>
-      </div>
-      ` : ''}
+      </div>` : ''}
       <div style="text-align:center;margin:28px 0;">
         <a href="${SITE_URL}" style="display:inline-block;background:linear-gradient(135deg,#F5C518,#f0b400);color:#04377E;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(245,197,24,0.4);">
           Continue Your Surveys →
@@ -104,27 +100,17 @@ export async function GET(request: NextRequest) {
       <p style="color:#bbb;font-size:11px;margin:0;">Canadian Youth Cabinet &bull; <a href="${SITE_URL}" style="color:#0CB7C4;">thecyc.org</a></p>
     </div>
   </div>
-</body>
-</html>`;
+</body></html>`;
 
-      // Send via Resend
-      const sendRes = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'CYC Surveys <onboarding@resend.dev>',
-          to: [email],
+      try {
+        await transporter.sendMail({
+          from: `CYC Surveys <${GMAIL_USER}>`,
+          to: email,
           subject: `You're almost done! ${remainingCount > 0 ? `${remainingCount} survey${remainingCount > 1 ? 's' : ''} still waiting` : 'Finish your survey'}`,
           html
-        })
-      });
+        });
 
-      if (sendRes.ok) {
         sentCount++;
-        // Mark all sessions for this email as reminded
         for (const s of sessions) {
           await fetch(
             `${SUPABASE_URL}/rest/v1/response_sessions?id=eq.${s.id}`,
@@ -140,6 +126,8 @@ export async function GET(request: NextRequest) {
             }
           );
         }
+      } catch (emailErr) {
+        console.error(`Failed to send to ${email}:`, emailErr);
       }
     }
 
