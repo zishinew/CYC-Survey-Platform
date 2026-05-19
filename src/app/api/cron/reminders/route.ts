@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
   const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://survey.thecyc.org';
+  const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://cyc-survey-platform.vercel.app';
 
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD || !SUPABASE_URL || !SUPABASE_KEY) {
     return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
