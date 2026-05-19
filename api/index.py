@@ -59,6 +59,7 @@ class AnswerCreate(BaseModel):
 
 class ResponseSubmission(BaseModel):
     survey_id: str
+    email: str
     answers: List[AnswerCreate]
 
 # Routes
@@ -263,6 +264,7 @@ async def submit_response(survey_id: str, submission: ResponseSubmission):
         # 1. Create a response session
         session_res = supabase.table("response_sessions").insert({
             "survey_id": survey_id,
+            "email": submission.email,
             "is_completed": True,
             "completed_at": datetime.utcnow().isoformat()
         }).execute()

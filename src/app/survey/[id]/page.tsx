@@ -10,7 +10,8 @@ export default function SurveyPage() {
   const [survey, setSurvey] = useState<any>(null);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0); // 0 = email, 1+ = questions
+  const [email, setEmail] = useState('');
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
   const [refNumbers, setRefNumbers] = useState<Record<string, number | undefined>>({});
@@ -71,8 +72,17 @@ export default function SurveyPage() {
     );
   }
 
+  const totalSteps = survey.questions.length + 1; // +1 for email
+
   const handleNext = () => {
-    if (currentStep < survey.questions.length - 1) {
+    // Validate email on step 0
+    if (currentStep === 0) {
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert('Please enter a valid email address.');
+        return;
+      }
+    }
+    if (currentStep < totalSteps - 1) {
       setCurrentStep(curr => curr + 1);
     } else {
       submitSurvey();
@@ -102,7 +112,7 @@ export default function SurveyPage() {
       const res = await fetch(`/api/surveys/${survey.id}/responses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ survey_id: survey.id, answers: formattedAnswers })
+        body: JSON.stringify({ survey_id: survey.id, email, answers: formattedAnswers })
       });
 
       if (!res.ok) throw new Error("Failed to submit");
@@ -142,13 +152,15 @@ export default function SurveyPage() {
   }
 
   // Survey Form
-  const currentQuestion = survey.questions[currentStep];
-  const progress = ((currentStep + 1) / survey.questions.length) * 100;
+  // Current question (offset by 1 for email step)
+  const isEmailStep = currentStep === 0;
+  const currentQuestion = isEmailStep ? null : survey.questions[currentStep - 1];
+  const progress = (currentStep / totalSteps) * 100;
 
   // Helper to get options config
   const getOpts = (q: any) => {
-    if (!q.options) return { choices: [], has_other: false, max_selections: undefined, reference_number: undefined, description: '', attachments: [] };
-    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, reference_number: undefined, description: '', attachments: [] };
+    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [] };
+    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [] };
     return {
       choices: q.options.choices || [],
       has_other: q.options.has_other || false,
@@ -159,7 +171,7 @@ export default function SurveyPage() {
     };
   };
 
-  const opts = getOpts(currentQuestion);
+  const opts = currentQuestion ? getOpts(currentQuestion) : getOpts(null);
 
   return (
     <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-4 sm:py-6 relative overflow-hidden h-full">
@@ -168,7 +180,7 @@ export default function SurveyPage() {
           <motion.div className="bg-[var(--color-cyc-primary)] h-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
         </div>
         <p className="text-xs sm:text-sm font-bold text-[var(--color-cyc-secondary)] mt-3">
-          {currentQuestion.type === 'section_header' ? 'Information' : `Question ${currentStep + 1} of ${survey.questions.length}`}
+          {isEmailStep ? 'Before we begin' : (currentQuestion?.type === 'section_header' ? 'Information' : `Question ${currentStep} of ${survey.questions.length}`)}
         </p>
       </motion.div>
 
@@ -177,6 +189,27 @@ export default function SurveyPage() {
           <motion.div key={currentStep} initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
             className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full overflow-y-auto no-scrollbar pb-4">
             
+            {/* EMAIL STEP */}
+            {isEmailStep && (
+              <>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8 text-[var(--color-cyc-secondary)] text-center leading-snug pt-4">
+                  What is your email address?
+                </h2>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-teal-50 focus:outline-none transition-all text-base sm:text-lg text-center"
+                  placeholder="you@example.com"
+                />
+                <p className="text-xs text-gray-400 text-center mt-3">Your email will be kept confidential and is used only for tracking responses.</p>
+              </>
+            )}
+
+            {/* QUESTION STEPS */}
+            {!isEmailStep && currentQuestion && (
+              <>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8 text-[var(--color-cyc-secondary)] text-center leading-snug pt-4">
               {currentQuestion.question_text}
             </h2>
@@ -377,6 +410,8 @@ export default function SurveyPage() {
                   onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})} />
               )}
             </div>
+            </>
+            )}
           </motion.div>
         </AnimatePresence>
 
@@ -387,9 +422,9 @@ export default function SurveyPage() {
           </button>
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleNext} disabled={submitting}
             className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl flex items-center text-base sm:text-lg font-bold shadow-lg shadow-yellow-200 hover:shadow-xl hover:-translate-y-0.5 transition-all">
-            {submitting ? 'Submitting...' : (currentStep === survey.questions.length - 1 ? 'Finish Survey' : (currentQuestion.type === 'section_header' ? 'Continue' : 'Next'))}
-            {!submitting && currentStep !== survey.questions.length - 1 && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
-            {!submitting && currentStep === survey.questions.length - 1 && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
+            {submitting ? 'Submitting...' : (currentStep === totalSteps - 1 ? 'Finish Survey' : (isEmailStep ? 'Next' : (currentQuestion?.type === 'section_header' ? 'Continue' : 'Next')))}
+            {!submitting && currentStep !== totalSteps - 1 && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
+            {!submitting && currentStep === totalSteps - 1 && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
           </motion.button>
         </div>
       </div>
