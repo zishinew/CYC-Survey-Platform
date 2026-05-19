@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 interface Answer {
   id: string;
@@ -33,12 +33,33 @@ export default function ResultsPage() {
   const [tab, setTab] = useState<'summary' | 'individual'>('summary');
   const [currentResponse, setCurrentResponse] = useState(0);
 
-  useEffect(() => {
+  const fetchResults = () => {
     fetch(`/api/surveys/${params.id}/results`)
       .then(res => res.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [params.id]);
+  };
+
+  useEffect(() => { fetchResults(); }, [params.id]);
+
+  const handleDeleteAll = async () => {
+    const input = window.prompt(`This will PERMANENTLY DELETE all ${data?.total_responses || 0} responses for this survey. Type "DELETE ALL" to confirm.`);
+    if (input !== 'DELETE ALL') { alert('Deletion cancelled.'); return; }
+    try {
+      await fetch(`/api/surveys/${params.id}/responses`, { method: 'DELETE' });
+      setCurrentResponse(0);
+      fetchResults();
+    } catch { alert('Failed to delete responses.'); }
+  };
+
+  const handleDeleteOne = async (sessionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this individual response? This cannot be undone.')) return;
+    try {
+      await fetch(`/api/responses/${sessionId}`, { method: 'DELETE' });
+      setCurrentResponse(prev => Math.max(0, prev - 1));
+      fetchResults();
+    } catch { alert('Failed to delete response.'); }
+  };
 
   if (loading) {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-cyc-primary)]"></div></div>;
@@ -186,8 +207,21 @@ export default function ResultsPage() {
         <Link href="/admin" className="text-gray-500 hover:text-gray-700 flex items-center text-sm mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
         </Link>
-        <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)]">{survey.title}</h1>
-        <p className="text-gray-500 mt-1">{total_responses} response{total_responses !== 1 ? 's' : ''}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)]">{survey.title}</h1>
+            <p className="text-gray-500 mt-1">{total_responses} response{total_responses !== 1 ? 's' : ''}</p>
+          </div>
+          {total_responses > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              className="flex items-center px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-semibold transition-colors"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear All Results
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tab Switcher */}
@@ -247,13 +281,22 @@ export default function ResultsPage() {
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => setCurrentResponse(Math.min(responses.length - 1, currentResponse + 1))}
-                  disabled={currentResponse === responses.length - 1}
-                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleDeleteOne(currentResp.session_id)}
+                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                    title="Delete this response"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentResponse(Math.min(responses.length - 1, currentResponse + 1))}
+                    disabled={currentResponse === responses.length - 1}
+                    className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Answer Cards */}

@@ -321,6 +321,25 @@ async def get_survey_results(survey_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/surveys/{survey_id}/responses")
+async def delete_all_responses(survey_id: str):
+    """Delete all response sessions and their answers for a survey."""
+    try:
+        # Cascade: deleting sessions will auto-delete answers via ON DELETE CASCADE
+        supabase.table("response_sessions").delete().eq("survey_id", survey_id).execute()
+        return {"success": True, "message": "All responses deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/responses/{session_id}")
+async def delete_single_response(session_id: str):
+    """Delete a single response session and its answers."""
+    try:
+        supabase.table("response_sessions").delete().eq("id", session_id).execute()
+        return {"success": True, "message": "Response deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/api/surveys/{survey_id}")
 async def delete_survey(survey_id: str):
     """Delete a survey and all its associated data (cascade)."""
