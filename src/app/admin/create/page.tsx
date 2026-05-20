@@ -13,6 +13,7 @@ interface QuestionDraft {
   options: string[];
   max_selections?: number;
   has_other?: boolean;
+  randomize_options?: boolean;
   reference_number?: number;
   section_description?: string;
   attachments?: { url: string; name: string; type: string }[];
@@ -82,6 +83,7 @@ export default function CreateSurvey() {
       options: type === 'multiple_choice' || type === 'checkboxes' ? ['Option 1'] : [],
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
+      randomize_options: false,
       reference_number: type === 'rating_scale' ? undefined : undefined,
       section_description: type === 'section_header' ? '' : undefined,
       attachments: type === 'section_header' ? [] : undefined,
@@ -147,9 +149,9 @@ export default function CreateSurvey() {
         questions: questions.map((q, idx) => {
           let options: any = null;
           if (q.type === 'multiple_choice') {
-            options = { choices: q.options, has_other: q.has_other || false };
+            options = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
           } else if (q.type === 'checkboxes') {
-            options = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false };
+            options = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
           } else if (q.type === 'rating_scale' && q.reference_number) {
             options = { has_calculator: true };
           } else if (q.type === 'section_header') {
@@ -282,12 +284,20 @@ export default function CreateSurvey() {
                   </label>
                 )}
                 {(q.type === 'multiple_choice' || q.type === 'checkboxes') && (
-                  <label className="flex items-center cursor-pointer">
-                    <input type="checkbox" checked={q.has_other || false}
-                      onChange={(e) => updateQuestion(q.id, 'has_other', e.target.checked)}
-                      className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
-                    Include &quot;Other&quot; option
-                  </label>
+                  <>
+                    <label className="flex items-center cursor-pointer">
+                      <input type="checkbox" checked={q.has_other || false}
+                        onChange={(e) => updateQuestion(q.id, 'has_other', e.target.checked)}
+                        className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                      Include &quot;Other&quot; option
+                    </label>
+                    <label className="flex items-center cursor-pointer ml-4">
+                      <input type="checkbox" checked={q.randomize_options || false}
+                        onChange={(e) => updateQuestion(q.id, 'randomize_options', e.target.checked)}
+                        className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                      Randomize option order
+                    </label>
+                  </>
                 )}
                 {q.type === 'rating_scale' && (
                   <label className="flex items-center cursor-pointer">

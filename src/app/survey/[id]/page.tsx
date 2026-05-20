@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Download } from 'lucide-react';
@@ -107,6 +107,50 @@ export default function SurveyPage() {
     }
   }, [answers, sessionId, currentStep, survey]);
 
+  // --- Derived State (Must be before early returns for hooks) ---
+  const totalSteps = survey ? survey.questions.length + 1 : 0;
+  const isEmailStep = currentStep === 0;
+  const currentQuestion = survey && !isEmailStep ? survey.questions[currentStep - 1] : null;
+  const progress = survey && totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
+
+  // Helper to shuffle array (Fisher-Yates)
+  const shuffleArray = (array: string[]) => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      // eslint-disable-next-line react-hooks/purity
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  // Helper to get options config
+  const getOpts = (q: any) => {
+    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false };
+    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false };
+    return {
+      choices: q.options.choices || [],
+      has_other: q.options.has_other || false,
+      max_selections: q.options.max_selections,
+      has_calculator: q.options.has_calculator || q.options.reference_number ? true : false,
+      description: q.options.description || '',
+      attachments: q.options.attachments || [],
+      randomize_options: q.options.randomize_options || false
+    };
+  };
+
+  const opts = currentQuestion ? getOpts(currentQuestion) : getOpts(null);
+
+  // Memoized shuffled choices to prevent re-shuffling on every state update
+  const displayChoices = useMemo(() => {
+    if (!opts.choices || opts.choices.length === 0) return [];
+    if (opts.randomize_options) {
+      return shuffleArray(opts.choices);
+    }
+    return opts.choices;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id]);
+
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center h-full">
@@ -138,8 +182,6 @@ export default function SurveyPage() {
       </div>
     );
   }
-
-  const totalSteps = survey.questions.length + 1; // +1 for email
 
   // Save the current answer to backend
   const saveCurrentAnswer = async (sid: string, questionIdx: number) => {
@@ -271,27 +313,6 @@ export default function SurveyPage() {
   }
 
   // Survey Form
-  // Current question (offset by 1 for email step)
-  const isEmailStep = currentStep === 0;
-  const currentQuestion = isEmailStep ? null : survey.questions[currentStep - 1];
-  const progress = (currentStep / totalSteps) * 100;
-
-  // Helper to get options config
-  const getOpts = (q: any) => {
-    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [] };
-    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [] };
-    return {
-      choices: q.options.choices || [],
-      has_other: q.options.has_other || false,
-      max_selections: q.options.max_selections,
-      has_calculator: q.options.has_calculator || q.options.reference_number ? true : false,
-      description: q.options.description || '',
-      attachments: q.options.attachments || [],
-    };
-  };
-
-  const opts = currentQuestion ? getOpts(currentQuestion) : getOpts(null);
-
   return (
     <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-4 sm:py-6 relative overflow-hidden h-full">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex-shrink-0 mb-6 text-center">
@@ -364,7 +385,7 @@ export default function SurveyPage() {
               {/* MULTIPLE CHOICE */}
               {currentQuestion.type === 'multiple_choice' && (
                 <div className="space-y-3 sm:space-y-4">
-                  {opts.choices.map((opt: string) => (
+                  {displayChoices.map((opt: string) => (
                     <label key={opt} className={`flex items-center p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${answers[currentQuestion.id] === opt ? 'border-[var(--color-cyc-primary)] bg-teal-50' : 'border-gray-100 hover:border-teal-200 bg-white'}`}>
                       <input type="radio" name={currentQuestion.id} value={opt} checked={answers[currentQuestion.id] === opt}
                         onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})} className="sr-only" />
@@ -441,7 +462,7 @@ export default function SurveyPage() {
                     return (
                       <>
                         {maxSelections && <p className="text-sm text-gray-500 font-medium mb-3">Select up to {maxSelections} options</p>}
-                        {opts.choices.map((opt: string) => {
+                        {displayChoices.map((opt: string) => {
                           const isChecked = currentSelected.includes(opt);
                           const isDisabled = !isChecked && maxSelections && currentSelected.length >= maxSelections;
                           return (

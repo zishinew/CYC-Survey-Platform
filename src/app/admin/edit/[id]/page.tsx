@@ -12,6 +12,8 @@ interface QuestionDraft {
   type: QuestionType;
   options: any; // will normalize to array in state
   max_selections?: number;
+  has_other?: boolean;
+  randomize_options?: boolean;
   is_required: boolean;
 }
 
@@ -55,6 +57,8 @@ export default function EditSurvey() {
             type: q.type,
             options: isArr ? (q.options || []) : q.options.choices,
             max_selections: !isArr ? q.options.max_selections : (q.type === 'checkboxes' ? 3 : undefined),
+            has_other: !isArr ? q.options.has_other : false,
+            randomize_options: !isArr ? q.options.randomize_options : false,
             is_required: q.is_required
           };
         });
@@ -80,6 +84,8 @@ export default function EditSurvey() {
       type,
       options: type === 'multiple_choice' || type === 'checkboxes' ? ['Option 1'] : [],
       max_selections: type === 'checkboxes' ? 3 : undefined,
+      has_other: false,
+      randomize_options: false,
       is_required: true
     };
     setQuestions([...questions, newQ]);
@@ -150,8 +156,8 @@ export default function EditSurvey() {
           question_text: q.question_text,
           type: q.type,
           order_index: idx + 1,
-          options: q.type === 'multiple_choice' ? q.options : 
-                   q.type === 'checkboxes' ? { choices: q.options, max_selections: q.max_selections } : null,
+          options: q.type === 'multiple_choice' ? { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : 
+                   q.type === 'checkboxes' ? { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : null,
           is_required: q.is_required
         }))
       };
@@ -289,7 +295,7 @@ export default function EditSurvey() {
                       <input
                         type="number"
                         min={1}
-                        max={optionsArray.length}
+                        max={optionsArray.length + (q.has_other ? 1 : 0)}
                         value={q.max_selections || 1}
                         onChange={(e) => updateQuestion(q.id, 'max_selections', parseInt(e.target.value) || 1)}
                         className="w-16 p-1 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-center"
@@ -297,6 +303,23 @@ export default function EditSurvey() {
                     </label>
                   )}
                 </div>
+
+                {(q.type === 'multiple_choice' || q.type === 'checkboxes') && (
+                  <div className="flex items-center space-x-6 mb-4 text-sm text-gray-600 pl-8">
+                    <label className="flex items-center cursor-pointer">
+                      <input type="checkbox" checked={q.has_other || false}
+                        onChange={(e) => updateQuestion(q.id, 'has_other', e.target.checked)}
+                        className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                      Include &quot;Other&quot; option
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                      <input type="checkbox" checked={q.randomize_options || false}
+                        onChange={(e) => updateQuestion(q.id, 'randomize_options', e.target.checked)}
+                        className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                      Randomize option order
+                    </label>
+                  </div>
+                )}
 
                 {(q.type === 'multiple_choice' || q.type === 'checkboxes') && (
                   <div className="ml-8 space-y-2">
