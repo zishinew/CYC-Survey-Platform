@@ -2,11 +2,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PlusCircle, Users, Clock, LogOut, Edit3, Lock, Power, Trash2, BarChart3 } from 'lucide-react';
+import { PlusCircle, Users, Clock, LogOut, Edit3, Lock, Power, Trash2, BarChart3, Share2, Copy, Check, X } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shareModal, setShareModal] = useState<{ id: string; title: string } | null>(null);
+  const [shareSource, setShareSource] = useState('');
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const router = useRouter();
 
   const fetchSurveys = () => {
@@ -85,6 +88,20 @@ export default function AdminDashboard() {
     router.push('/admin/login');
   };
 
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+  const generateLink = (surveyId: string, source: string) => {
+    const slug = source.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    if (!slug) return `${baseUrl}/survey/${surveyId}`;
+    return `${baseUrl}/survey/${surveyId}?ref=${slug}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedLink(text);
+    setTimeout(() => setCopiedLink(null), 2000);
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-cyc-primary)]"></div></div>;
   }
@@ -150,6 +167,15 @@ export default function AdminDashboard() {
                       Results
                     </Link>
 
+                    <button
+                      onClick={() => setShareModal({ id: survey.id, title: survey.title })}
+                      className="text-purple-600 hover:text-purple-800 flex items-center"
+                      title="Share Links"
+                    >
+                      <Share2 className="w-4 h-4 mr-1" />
+                      Share
+                    </button>
+
                     <button 
                       onClick={() => handleToggleActive(survey)}
                       className={`flex items-center ${survey.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-600 hover:text-green-800'}`}
@@ -192,6 +218,77 @@ export default function AdminDashboard() {
           </tbody>
         </table>
       </div>
+
+      {/* Share Link Modal */}
+      {shareModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative">
+            <button onClick={() => { setShareModal(null); setShareSource(''); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
+              <Share2 className="w-5 h-5 mr-2" />
+              Share Links
+            </h2>
+            <p className="text-sm text-gray-500 mb-5">Generate tracked links for <strong>{shareModal.title}</strong></p>
+
+            <div className="flex space-x-2 mb-4">
+              <input
+                type="text"
+                value={shareSource}
+                onChange={(e) => setShareSource(e.target.value)}
+                placeholder="Source name (e.g. instagram, email)"
+                className="flex-grow p-2.5 border-2 border-gray-200 rounded-lg focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && shareSource.trim()) {
+                    copyToClipboard(generateLink(shareModal.id, shareSource));
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (shareSource.trim()) copyToClipboard(generateLink(shareModal.id, shareSource));
+                }}
+                disabled={!shareSource.trim()}
+                className="px-4 py-2 bg-[var(--color-cyc-primary)] text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-all whitespace-nowrap"
+              >
+                Generate & Copy
+              </button>
+            </div>
+
+            {/* Quick presets */}
+            <p className="text-xs text-gray-400 mb-2">Quick presets:</p>
+            <div className="flex flex-wrap gap-2 mb-5">
+              {['instagram', 'email', 'linkedin', 'twitter', 'wechat', 'whatsapp', 'website', 'qr-code'].map(source => {
+                const link = generateLink(shareModal.id, source);
+                const isCopied = copiedLink === link;
+                return (
+                  <button
+                    key={source}
+                    onClick={() => copyToClipboard(link)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isCopied ? 'bg-green-100 border-green-300 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50'}`}
+                  >
+                    {isCopied ? <Check className="w-3 h-3 inline mr-1" /> : <Copy className="w-3 h-3 inline mr-1" />}
+                    {source}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Direct link (no ref) */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="text-xs text-gray-400 mb-1">Direct link (no tracking):</p>
+              <div className="flex items-center justify-between">
+                <code className="text-xs text-gray-600 truncate mr-2">{generateLink(shareModal.id, '')}</code>
+                <button onClick={() => copyToClipboard(generateLink(shareModal.id, ''))}
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                  {copiedLink === generateLink(shareModal.id, '') ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

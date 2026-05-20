@@ -365,6 +365,35 @@ export default function ResultsPage() {
       {/* SUMMARY TAB */}
       {tab === 'summary' && (
         <div className="space-y-6">
+          {/* Referral Breakdown */}
+          {data.referral_breakdown && Object.keys(data.referral_breakdown).length > 0 && (
+            <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+              <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-9.86a4.5 4.5 0 016.364 6.364l-4.5 4.5a4.5 4.5 0 01-7.244-1.242" /></svg>
+                Referral Sources
+              </h3>
+              <p className="text-xs text-gray-400 mb-4">Where your responses came from</p>
+              <div className="space-y-3">
+                {Object.entries(data.referral_breakdown as Record<string, number>)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([source, count]) => {
+                    const pct = total_responses > 0 ? Math.round((count / total_responses) * 100) : 0;
+                    return (
+                      <div key={source}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium text-gray-700 capitalize">{source}</span>
+                          <span className="text-gray-500">{count} ({pct}%)</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2.5">
+                          <div className="bg-gradient-to-r from-indigo-400 to-purple-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
           {questions.map((q: Question, idx: number) => (
             <div key={q.id} className="bg-white rounded-xl shadow border border-gray-200 p-6">
               <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1">

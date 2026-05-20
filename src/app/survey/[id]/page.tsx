@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Download } from 'lucide-react';
 
 export default function SurveyPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralSource = searchParams.get('ref') || null;
   const [survey, setSurvey] = useState<any>(null);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -214,10 +216,12 @@ export default function SurveyPage() {
         return;
       }
       try {
-        const res = await fetch(`/api/surveys/${survey.id}/sessions`, {
+         const sessionBody: any = { email };
+          if (referralSource) sessionBody.referral_source = referralSource;
+          const res = await fetch(`/api/surveys/${survey.id}/sessions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify(sessionBody)
         });
         const data = await res.json();
         setSessionId(data.session_id);

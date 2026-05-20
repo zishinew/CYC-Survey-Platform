@@ -259,6 +259,7 @@ async def update_survey(survey_id: str, survey: SurveyCreate):
 
 class SessionCreate(BaseModel):
     email: str
+    referral_source: Optional[str] = None
 
 class AnswerUpsert(BaseModel):
     question_id: str
@@ -282,12 +283,15 @@ async def create_session(survey_id: str, body: SessionCreate):
             answers_res = supabase.table("answers").select("*").eq("session_id", session["id"]).execute()
             return {"session_id": session["id"], "current_step": session.get("current_step", 0), "saved_answers": answers_res.data, "resumed": True}
 
-        session_res = supabase.table("response_sessions").insert({
+        session_data = {
             "survey_id": survey_id,
             "email": body.email,
             "is_completed": False,
             "current_step": 0
-        }).execute()
+        }
+        if body.referral_source:
+            session_data["referral_source"] = body.referral_source
+        session_res = supabase.table("response_sessions").insert(session_data).execute()
 
         return {"session_id": session_res.data[0]["id"], "current_step": 0, "saved_answers": [], "resumed": False}
     except Exception as e:
@@ -410,10 +414,14 @@ async def get_survey_results(survey_id: str):
 
         # Build response objects
         responses = []
+        referral_counts = {}
         for s in sessions:
+            ref = s.get("referral_source") or "Direct"
+            referral_counts[ref] = referral_counts.get(ref, 0) + 1
             responses.append({
                 "session_id": s["id"],
                 "completed_at": s.get("completed_at"),
+                "referral_source": s.get("referral_source"),
                 "answers": answers_by_session.get(s["id"], [])
             })
 
@@ -421,7 +429,8 @@ async def get_survey_results(survey_id: str):
             "survey": survey,
             "questions": questions,
             "responses": responses,
-            "total_responses": len(sessions)
+            "total_responses": len(sessions),
+            "referral_breakdown": referral_counts
         }
     except HTTPException:
         raise
