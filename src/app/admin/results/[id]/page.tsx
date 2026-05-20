@@ -2,7 +2,48 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2, ChevronDown, ChevronUp, Calculator } from 'lucide-react';
+
+// --- STATS MATH HELPERS ---
+function calculateMedian(arr: number[]) {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function calculateStdDev(arr: number[], mean: number) {
+  if (arr.length < 2) return 0;
+  const variance = arr.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+  return Math.sqrt(variance);
+}
+
+function calculateQuartiles(arr: number[]) {
+  if (arr.length === 0) return { q1: 0, q3: 0, iqr: 0 };
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const lowerHalf = sorted.slice(0, mid);
+  const upperHalf = sorted.slice(sorted.length % 2 === 0 ? mid : mid + 1);
+  const q1 = calculateMedian(lowerHalf);
+  const q3 = calculateMedian(upperHalf);
+  return { q1, q3, iqr: q3 - q1 };
+}
+
+function findOutliers(arr: number[], q1: number, q3: number, iqr: number) {
+  const lowerBound = q1 - 1.5 * iqr;
+  const upperBound = q3 + 1.5 * iqr;
+  return arr.filter(x => x < lowerBound || x > upperBound);
+}
+
+function calculateMode(counts: Record<string | number, number>) {
+  let max = 0;
+  let modes: string[] = [];
+  for (const [key, val] of Object.entries(counts)) {
+    if (val > max) { max = val; modes = [key]; }
+    else if (val === max && max > 0) { modes.push(key); }
+  }
+  return modes.length > 0 ? { modes, count: max } : null;
+}
 
 interface Answer {
   id: string;
@@ -32,6 +73,9 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'summary' | 'individual'>('summary');
   const [currentResponse, setCurrentResponse] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState<Record<string, boolean>>({});
+
+  const toggleAdvanced = (qId: string) => setShowAdvanced(prev => ({ ...prev, [qId]: !prev[qId] }));
 
   const fetchResults = () => {
     fetch(`/api/surveys/${params.id}/results`)
@@ -76,6 +120,21 @@ export default function ResultsPage() {
     return responses.flatMap((r: Response) => r.answers.filter((a: Answer) => a.question_id === qId));
   }
 
+  const advancedStatsUI = (qId: string, content: React.ReactNode) => (
+    <div className="mt-6 pt-4 border-t border-gray-100">
+      <button onClick={() => toggleAdvanced(qId)} className="flex items-center text-xs font-semibold text-[var(--color-cyc-primary)] hover:text-teal-700 transition-colors bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-full">
+        <Calculator className="w-3 h-3 mr-1.5" />
+        {showAdvanced[qId] ? 'Hide Research Stats' : 'Show Research Stats'}
+        {showAdvanced[qId] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+      </button>
+      {showAdvanced[qId] && (
+        <div className="mt-3 p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {content}
+        </div>
+      )}
+    </div>
+  );
+
   function renderSummaryForQuestion(q: Question) {
     const answers = getAnswersForQuestion(q.id);
     if (answers.length === 0) {
@@ -87,22 +146,32 @@ export default function ResultsPage() {
       const counts: Record<string, number> = {};
       opts.forEach((o: string) => counts[o] = 0);
       answers.forEach(a => { if (a.answer_text && counts[a.answer_text] !== undefined) counts[a.answer_text]++; });
+      const modeData = calculateMode(counts);
+
       return (
-        <div className="space-y-3">
-          {opts.map((opt: string) => {
-            const pct = answers.length > 0 ? Math.round((counts[opt] / answers.length) * 100) : 0;
-            return (
-              <div key={opt}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium text-gray-700">{opt}</span>
-                  <span className="text-gray-500">{counts[opt]} ({pct}%)</span>
+        <div>
+          <div className="space-y-3">
+            {opts.map((opt: string) => {
+              const pct = answers.length > 0 ? Math.round((counts[opt] / answers.length) * 100) : 0;
+              return (
+                <div key={opt}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-gray-700">{opt}</span>
+                    <span className="text-gray-500">{counts[opt]} ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div className="h-full rounded-full bg-[var(--color-cyc-primary)] transition-all duration-500" style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                  <div className="h-full rounded-full bg-[var(--color-cyc-primary)] transition-all duration-500" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          {answers.length > 0 && advancedStatsUI(q.id, (
+            <>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Sample Size (N)</span><span className="font-bold">{answers.length}</span></div>
+              {modeData && <div className="col-span-2"><span className="block text-xs text-gray-500 mb-0.5">Statistical Mode</span><span className="font-bold">{modeData.modes.join(', ')} ({modeData.count} responses)</span></div>}
+            </>
+          ))}
         </div>
       );
     }
@@ -116,38 +185,78 @@ export default function ResultsPage() {
           (a.answer_options as string[]).forEach(sel => { if (counts[sel] !== undefined) counts[sel]++; });
         }
       });
+      const modeData = calculateMode(counts);
+
       return (
-        <div className="space-y-3">
-          {opts.map((opt: string) => {
-            const pct = answers.length > 0 ? Math.round((counts[opt] / answers.length) * 100) : 0;
-            return (
-              <div key={opt}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium text-gray-700">{opt}</span>
-                  <span className="text-gray-500">{counts[opt]} ({pct}%)</span>
+        <div>
+          <div className="space-y-3">
+            {opts.map((opt: string) => {
+              const pct = answers.length > 0 ? Math.round((counts[opt] / answers.length) * 100) : 0;
+              return (
+                <div key={opt}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-gray-700">{opt}</span>
+                    <span className="text-gray-500">{counts[opt]} ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div className="h-full rounded-full bg-[var(--color-cyc-accent)] transition-all duration-500" style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                  <div className="h-full rounded-full bg-[var(--color-cyc-accent)] transition-all duration-500" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          {answers.length > 0 && advancedStatsUI(q.id, (
+            <>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Sample Size (N)</span><span className="font-bold">{answers.length}</span></div>
+              {modeData && <div className="col-span-2"><span className="block text-xs text-gray-500 mb-0.5">Statistical Mode</span><span className="font-bold">{modeData.modes.join(', ')} ({modeData.count} selections)</span></div>}
+            </>
+          ))}
         </div>
       );
     }
 
     if (q.type === 'rating_scale') {
       const nums = answers.map(a => a.answer_numeric).filter((n): n is number => n !== null);
-      const avg = nums.length > 0 ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : '—';
+      const mean = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+      const avg = nums.length > 0 ? mean.toFixed(1) : '—';
+      const median = calculateMedian(nums);
+      const stdDev = calculateStdDev(nums, mean);
+      const variance = Math.pow(stdDev, 2);
+      const min = nums.length > 0 ? Math.min(...nums) : 0;
+      const max = nums.length > 0 ? Math.max(...nums) : 0;
+      const { q1, q3, iqr } = calculateQuartiles(nums);
+      const outliers = findOutliers(nums, q1, q3, iqr);
+
       return (
-        <div className="flex items-center space-x-6">
-          <div className="text-center">
-            <div className="text-4xl font-extrabold text-[var(--color-cyc-primary)]">{avg}%</div>
-            <div className="text-sm text-gray-500 mt-1">Average</div>
+        <div>
+          <div className="flex items-center space-x-6">
+            <div className="text-center">
+              <div className="text-4xl font-extrabold text-[var(--color-cyc-primary)]">{avg}%</div>
+              <div className="text-sm text-gray-500 mt-1">Average</div>
+            </div>
+            <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+              <div className="h-full rounded-full bg-[var(--color-cyc-primary)] transition-all duration-500" style={{ width: `${avg}%` }} />
+            </div>
           </div>
-          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
-            <div className="h-full rounded-full bg-[var(--color-cyc-primary)] transition-all duration-500" style={{ width: `${avg}%` }} />
-          </div>
+          {nums.length > 0 && advancedStatsUI(q.id, (
+            <>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Sample Size (N)</span><span className="font-bold">{nums.length}</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Median</span><span className="font-bold">{median}</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Standard Deviation</span><span className="font-bold">{stdDev.toFixed(2)}</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Variance</span><span className="font-bold">{variance.toFixed(2)}</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Range (Min - Max)</span><span className="font-bold">{min} - {max}</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Quartiles (Q1, Q3)</span><span className="font-bold">{q1}, {q3}</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">IQR</span><span className="font-bold">{iqr}</span></div>
+              <div className="col-span-2">
+                <span className="block text-xs text-gray-500 mb-0.5">Outliers (1.5*IQR)</span>
+                {outliers.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {outliers.map((o, i) => <span key={i} className="px-2 py-0.5 bg-red-100 text-red-700 rounded-md text-xs font-bold">{o}</span>)}
+                  </div>
+                ) : <span className="font-bold text-gray-400">None detected</span>}
+              </div>
+            </>
+          ))}
         </div>
       );
     }
@@ -157,7 +266,12 @@ export default function ResultsPage() {
       const labels: Record<number, string> = { 1: 'Strongly Disagree', 2: 'Disagree', 3: 'Neutral', 4: 'Agree', 5: 'Strongly Agree' };
       answers.forEach(a => { if (a.answer_numeric && counts[a.answer_numeric] !== undefined) counts[a.answer_numeric]++; });
       const nums = answers.map(a => a.answer_numeric).filter((n): n is number => n !== null);
-      const avg = nums.length > 0 ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : '—';
+      const mean = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+      const avg = nums.length > 0 ? mean.toFixed(1) : '—';
+      const median = Math.round(calculateMedian(nums));
+      const stdDev = calculateStdDev(nums, mean);
+      const modeData = calculateMode(counts);
+
       return (
         <div>
           <div className="text-center mb-4">
@@ -178,6 +292,14 @@ export default function ResultsPage() {
               );
             })}
           </div>
+          {nums.length > 0 && advancedStatsUI(q.id, (
+            <>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Sample Size (N)</span><span className="font-bold">{nums.length}</span></div>
+              <div className="col-span-2"><span className="block text-xs text-gray-500 mb-0.5">Median</span><span className="font-bold">{median} ({labels[median] || ''})</span></div>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Standard Deviation</span><span className="font-bold">{stdDev.toFixed(2)}</span></div>
+              {modeData && <div className="col-span-2"><span className="block text-xs text-gray-500 mb-0.5">Statistical Mode</span><span className="font-bold">{modeData.modes.map(m => labels[Number(m)] || m).join(', ')}</span></div>}
+            </>
+          ))}
         </div>
       );
     }
