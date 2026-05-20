@@ -275,7 +275,7 @@ export default function AdminDashboard() {
                 type="text"
                 value={shareLabel}
                 onChange={(e) => setShareLabel(e.target.value)}
-                placeholder="Label (e.g. Instagram Story, Email Blast)"
+                placeholder="Label (intern name)"
                 className="flex-grow p-2.5 border-2 border-gray-200 rounded-lg focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleGenerateLink(); }}
               />
