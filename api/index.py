@@ -39,6 +39,7 @@ class Question(BaseModel):
     order_index: int
     options: Optional[Any] = None
     is_required: bool
+    is_conditional: bool = False
 
 class SurveyList(BaseModel):
     id: str
@@ -149,6 +150,7 @@ class QuestionCreate(BaseModel):
     order_index: int
     options: Optional[Any] = None
     is_required: bool
+    is_conditional: bool = False
 
 class SurveyCreate(BaseModel):
     title: str
@@ -187,7 +189,8 @@ async def create_survey(survey: SurveyCreate):
                     "type": q.type,
                     "order_index": q.order_index,
                     "options": q.options,
-                    "is_required": q.is_required
+                    "is_required": q.is_required,
+                    "is_conditional": q.is_conditional
                 })
             
             questions_res = supabase.table("questions").insert(questions_to_insert).execute()
@@ -243,7 +246,8 @@ async def update_survey(survey_id: str, survey: SurveyCreate):
                     "type": q.type,
                     "order_index": q.order_index,
                     "options": q.options,
-                    "is_required": q.is_required
+                    "is_required": q.is_required,
+                    "is_conditional": q.is_conditional
                 })
             
             questions_res = supabase.table("questions").insert(questions_to_insert).execute()
@@ -268,6 +272,49 @@ class AnswerUpsert(BaseModel):
     answer_text: Optional[str] = None
     answer_numeric: Optional[int] = None
     answer_options: Optional[Any] = None
+
+class CheckStatusRequest(BaseModel):
+    email: str
+
+@app.post("/api/surveys/{survey_id}/check-status")
+async def check_survey_status(survey_id: str, body: CheckStatusRequest):
+    """Check if the given email has already submitted the survey."""
+    try:
+        existing = supabase.table("response_sessions").select("id").eq(
+            "survey_id", survey_id
+        ).eq("email", body.email).eq("is_completed", True).execute()
+        return {"has_submitted": bool(existing.data)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/user/profile-data")
+async def get_user_profile_data(email: str):
+    """Fetch past answers for an email to populate conditional fields."""
+    try:
+        sessions = supabase.table("response_sessions").select("id").eq("email", email).eq("is_completed", True).execute()
+        if not sessions.data:
+            return {}
+        
+        session_ids = [s["id"] for s in sessions.data]
+        
+        # Get answers joined with question text
+        answers = supabase.table("answers").select("*, questions(question_text)").in_("session_id", session_ids).execute()
+        
+        profile_data = {}
+        for ans in answers.data:
+            q_info = ans.get("questions")
+            if q_info and isinstance(q_info, dict):
+                q_text = q_info.get("question_text")
+                if q_text:
+                    profile_data[q_text] = {
+                        "answer_text": ans.get("answer_text"),
+                        "answer_numeric": ans.get("answer_numeric"),
+                        "answer_options": ans.get("answer_options")
+                    }
+                    
+        return profile_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/surveys/{survey_id}/sessions")
 async def create_session(survey_id: str, body: SessionCreate):

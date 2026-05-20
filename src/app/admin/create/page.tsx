@@ -11,13 +11,14 @@ interface QuestionDraft {
   question_text: string;
   type: QuestionType;
   options: string[];
+  is_required: boolean;
+  is_conditional: boolean;
   max_selections?: number;
   has_other?: boolean;
   randomize_options?: boolean;
   reference_number?: number;
   section_description?: string;
   attachments?: { url: string; name: string; type: string }[];
-  is_required: boolean;
 }
 
 export default function CreateSurvey() {
@@ -81,13 +82,14 @@ export default function CreateSurvey() {
       question_text: '',
       type,
       options: type === 'multiple_choice' || type === 'checkboxes' ? ['Option 1'] : [],
+      is_required: type === 'section_header' ? false : true,
+      is_conditional: false,
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
       randomize_options: false,
       reference_number: type === 'rating_scale' ? undefined : undefined,
       section_description: type === 'section_header' ? '' : undefined,
-      attachments: type === 'section_header' ? [] : undefined,
-      is_required: type === 'section_header' ? false : true
+      attachments: type === 'section_header' ? [] : undefined
     };
     setQuestions([...questions, newQ]);
   };
@@ -147,22 +149,23 @@ export default function CreateSurvey() {
         is_active: isActive,
         thumbnail_url: thumbnailUrl || null,
         questions: questions.map((q, idx) => {
-          let options: any = null;
+          let optionsPayload: any = null;
           if (q.type === 'multiple_choice') {
-            options = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
+            optionsPayload = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
           } else if (q.type === 'checkboxes') {
-            options = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
+            optionsPayload = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
           } else if (q.type === 'rating_scale' && q.reference_number) {
-            options = { has_calculator: true };
+            optionsPayload = { has_calculator: true };
           } else if (q.type === 'section_header') {
-            options = { description: q.section_description || '', attachments: q.attachments || [] };
+            optionsPayload = { description: q.section_description || '', attachments: q.attachments || [] };
           }
           return {
             question_text: q.question_text,
             type: q.type,
             order_index: idx + 1,
-            options,
-            is_required: q.is_required
+            is_required: q.is_required,
+            is_conditional: q.is_conditional || false,
+            options: optionsPayload
           };
         })
       };
@@ -267,12 +270,20 @@ export default function CreateSurvey() {
               <div className="flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600">
                 <span className="bg-gray-100 px-2 py-1 rounded capitalize">{q.type.replace('_', ' ')}</span>
                 {q.type !== 'section_header' && (
-                  <label className="flex items-center cursor-pointer">
-                    <input type="checkbox" checked={q.is_required}
-                      onChange={(e) => updateQuestion(q.id, 'is_required', e.target.checked)}
-                      className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
-                    Required
-                  </label>
+                  <>
+                    <label className="flex items-center cursor-pointer">
+                      <input type="checkbox" checked={q.is_required}
+                        onChange={(e) => updateQuestion(q.id, 'is_required', e.target.checked)}
+                        className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                      Required
+                    </label>
+                    <label className="flex items-center cursor-pointer ml-4">
+                      <input type="checkbox" checked={q.is_conditional || false}
+                        onChange={(e) => updateQuestion(q.id, 'is_conditional', e.target.checked)}
+                        className="mr-2 h-4 w-4 text-purple-500" />
+                      Skip if answered previously
+                    </label>
+                  </>
                 )}
                 {q.type === 'checkboxes' && (
                   <label className="flex items-center">

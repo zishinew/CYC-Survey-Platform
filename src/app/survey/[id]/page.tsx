@@ -13,7 +13,8 @@ export default function SurveyPage() {
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0 = email, 1+ = questions
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(searchParams.get('email') || '');
+  const [profileData, setProfileData] = useState<Record<string, any>>({});
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
@@ -208,6 +209,19 @@ export default function SurveyPage() {
     }).catch(() => {});
   };
 
+  const getNextVisibleStep = (startStep: number, forward: boolean, pData = profileData) => {
+    let next = startStep;
+    while (next > 0 && next <= survey.questions.length) {
+      const q = survey.questions[next - 1];
+      if (q && q.is_conditional && pData[q.question_text]) {
+        next = forward ? next + 1 : next - 1;
+      } else {
+        break;
+      }
+    }
+    return next;
+  };
+
   const handleNext = async () => {
     // Step 0: create/resume session
     if (currentStep === 0) {
@@ -216,9 +230,36 @@ export default function SurveyPage() {
         return;
       }
       try {
-         const sessionBody: any = { email };
-          if (referralSource) sessionBody.referral_source = referralSource;
-          const res = await fetch(`/api/surveys/${survey.id}/sessions`, {
+        // 1. Duplicate Prevention Check
+        const statusRes = await fetch(`/api/surveys/${survey.id}/check-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const statusData = await statusRes.json();
+        if (statusData.has_submitted) {
+          setAlreadyCompleted(true);
+          const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
+          if (!completedSurveys.includes(survey.id)) {
+            completedSurveys.push(survey.id);
+            localStorage.setItem('cyc_completed_surveys', JSON.stringify(completedSurveys));
+          }
+          return;
+        }
+
+        // 2. Fetch Profile Data
+        let fetchedProfileData = profileData;
+        if (Object.keys(profileData).length === 0) {
+          const profileRes = await fetch(`/api/user/profile-data?email=${encodeURIComponent(email)}`);
+          if (profileRes.ok) {
+            fetchedProfileData = await profileRes.json();
+            setProfileData(fetchedProfileData);
+          }
+        }
+
+        const sessionBody: any = { email };
+        if (referralSource) sessionBody.referral_source = referralSource;
+        const res = await fetch(`/api/surveys/${survey.id}/sessions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(sessionBody)
@@ -226,46 +267,64 @@ export default function SurveyPage() {
         const data = await res.json();
         setSessionId(data.session_id);
 
+        const newAnswers: Record<string, any> = {};
         if (data.resumed && data.saved_answers?.length > 0) {
-          // Restore saved answers
-          const restored: Record<string, any> = {};
           for (const a of data.saved_answers) {
-            if (a.answer_options) restored[a.question_id] = a.answer_options;
-            else if (a.answer_numeric !== null && a.answer_numeric !== undefined) restored[a.question_id] = a.answer_numeric;
-            else if (a.answer_text) restored[a.question_id] = a.answer_text;
+            if (a.answer_options) newAnswers[a.question_id] = a.answer_options;
+            else if (a.answer_numeric !== null && a.answer_numeric !== undefined) newAnswers[a.question_id] = a.answer_numeric;
+            else if (a.answer_text) newAnswers[a.question_id] = a.answer_text;
           }
-          setAnswers(restored);
-          setCurrentStep(data.current_step > 0 ? data.current_step : 1);
-          return;
         }
+
+        // Pre-fill conditional answers
+        survey.questions.forEach((q: any) => {
+          if (q.is_conditional && fetchedProfileData[q.question_text] && newAnswers[q.id] === undefined) {
+            const past = fetchedProfileData[q.question_text];
+            if (past.answer_options) newAnswers[q.id] = past.answer_options;
+            else if (past.answer_numeric !== null) newAnswers[q.id] = past.answer_numeric;
+            else if (past.answer_text) newAnswers[q.id] = past.answer_text;
+          }
+        });
+
+        setAnswers(newAnswers);
+        
+        if (data.resumed && data.current_step > 0) {
+           setCurrentStep(data.current_step);
+        } else {
+           setCurrentStep(getNextVisibleStep(1, true, fetchedProfileData));
+        }
+        return;
       } catch {
         alert('Failed to start session. Please try again.');
         return;
       }
-      setCurrentStep(1);
-      return;
     }
 
     // Save current answer before moving
     if (sessionId) {
       await saveCurrentAnswer(sessionId, currentStep - 1);
+      
+      const nextStep = getNextVisibleStep(currentStep + 1, true);
+      
       // Update step on server
       fetch(`/api/sessions/${sessionId}/step`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_step: currentStep + 1 })
+        body: JSON.stringify({ current_step: nextStep })
       }).catch(() => {});
-    }
-
-    if (currentStep < totalSteps - 1) {
-      setCurrentStep(curr => curr + 1);
-    } else {
-      await finishSurvey();
+      
+      if (nextStep <= survey.questions.length) {
+        setCurrentStep(nextStep);
+      } else {
+        await finishSurvey();
+      }
     }
   };
 
   const handleBack = () => {
-    if (currentStep > 0) setCurrentStep(curr => curr - 1);
+    if (currentStep > 0) {
+      setCurrentStep(Math.max(0, getNextVisibleStep(currentStep - 1, false)));
+    }
   };
 
   const finishSurvey = async () => {

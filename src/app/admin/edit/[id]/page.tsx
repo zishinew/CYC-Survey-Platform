@@ -15,6 +15,7 @@ interface QuestionDraft {
   has_other?: boolean;
   randomize_options?: boolean;
   is_required: boolean;
+  is_conditional: boolean;
 }
 
 export default function EditSurvey() {
@@ -59,7 +60,8 @@ export default function EditSurvey() {
             max_selections: !isArr ? q.options.max_selections : (q.type === 'checkboxes' ? 3 : undefined),
             has_other: !isArr ? q.options.has_other : false,
             randomize_options: !isArr ? q.options.randomize_options : false,
-            is_required: q.is_required
+            is_required: q.is_required,
+            is_conditional: q.is_conditional || false
           };
         });
         setQuestions(loadedQuestions);
@@ -86,7 +88,8 @@ export default function EditSurvey() {
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
       randomize_options: false,
-      is_required: true
+      is_required: true,
+      is_conditional: false
     };
     setQuestions([...questions, newQ]);
   };
@@ -152,14 +155,18 @@ export default function EditSurvey() {
         description,
         estimated_minutes: estimatedMinutes,
         is_active: isActive,
-        questions: questions.map((q, idx) => ({
-          question_text: q.question_text,
-          type: q.type,
-          order_index: idx + 1,
-          options: q.type === 'multiple_choice' ? { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : 
-                   q.type === 'checkboxes' ? { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : null,
-          is_required: q.is_required
-        }))
+        questions: questions.map((q, idx) => {
+          const optionsPayload = q.type === 'multiple_choice' ? { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : 
+                                 q.type === 'checkboxes' ? { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : null;
+          return {
+            question_text: q.question_text,
+            type: q.type,
+            order_index: idx + 1,
+            is_required: q.is_required,
+            is_conditional: q.is_conditional || false,
+            options: optionsPayload
+          };
+        })
       };
 
       const res = await fetch(`/api/surveys/${params.id}`, {
@@ -280,15 +287,21 @@ export default function EditSurvey() {
 
                 <div className="flex items-center space-x-4 mb-4 text-sm text-gray-600">
                   <span className="bg-gray-100 px-2 py-1 rounded capitalize">{q.type.replace('_', ' ')}</span>
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-4">
+                  <label className="flex items-center cursor-pointer text-sm text-gray-600">
+                    <input type="checkbox"
                       checked={q.is_required}
                       onChange={(e) => updateQuestion(q.id, 'is_required', e.target.checked)}
-                      className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]"
-                    />
+                      className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
                     Required
                   </label>
+                  <label className="flex items-center cursor-pointer text-sm text-gray-600">
+                    <input type="checkbox" checked={q.is_conditional || false}
+                      onChange={(e) => updateQuestion(q.id, 'is_conditional', e.target.checked)}
+                      className="mr-2 h-4 w-4 text-purple-500" />
+                    Skip if answered previously
+                  </label>
+                </div>
                   {q.type === 'checkboxes' && (
                     <label className="flex items-center ml-4">
                       <span className="mr-2">Max Selections:</span>
