@@ -26,6 +26,7 @@ export default function CreateSurvey() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionAlignment, setDescriptionAlignment] = useState('left');
   const [estimatedMinutes, setEstimatedMinutes] = useState(5);
   const [isActive, setIsActive] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -129,6 +130,20 @@ export default function CreateSurvey() {
     setQuestions(questions.filter(q => q.id !== id));
   };
 
+  const moveQuestionUp = (index: number) => {
+    if (index === 0) return;
+    const newQs = [...questions];
+    [newQs[index - 1], newQs[index]] = [newQs[index], newQs[index - 1]];
+    setQuestions(newQs);
+  };
+
+  const moveQuestionDown = (index: number) => {
+    if (index === questions.length - 1) return;
+    const newQs = [...questions];
+    [newQs[index + 1], newQs[index]] = [newQs[index], newQs[index + 1]];
+    setQuestions(newQs);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) { setError('Survey title is required'); return; }
@@ -147,9 +162,10 @@ export default function CreateSurvey() {
       const payload = {
         title,
         description,
+        description_alignment: descriptionAlignment,
         estimated_minutes: estimatedMinutes,
         is_active: isActive,
-        thumbnail_url: thumbnailUrl || null,
+        thumbnail_url: thumbnailUrl || undefined,
         questions: questions.map((q, idx) => {
           let optionsPayload: any = null;
           if (q.type === 'multiple_choice' || q.type === 'dropdown') {
@@ -207,10 +223,24 @@ export default function CreateSurvey() {
               placeholder="e.g. Mental Health Perspectives 2026" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
-              placeholder="Provide some context for the respondents..." />
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-gray-700">Description (Optional)</label>
+              <div className="flex items-center space-x-2">
+                <label className="text-xs text-gray-500">Alignment:</label>
+                <select value={descriptionAlignment} onChange={(e) => setDescriptionAlignment(e.target.value)} className="text-xs border rounded p-1 focus:outline-none">
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="justify">Justify</option>
+                </select>
+              </div>
+            </div>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:border-transparent transition-all"
+              rows={4}
+              placeholder="What is this survey about?"
+            />
           </div>
 
           {/* Thumbnail Upload */}
@@ -253,16 +283,22 @@ export default function CreateSurvey() {
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)]">Questions</h2>
           
-          {questions.map((q, idx) => (
-            <div key={q.id} className={`card relative border-l-4 ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
-              <div className="absolute top-4 right-4">
-                <button type="button" onClick={() => removeQuestion(q.id)} className="text-red-400 hover:text-red-600">
-                  <Trash2 className="w-5 h-5" />
+          {questions.map((q, qIdx) => (
+            <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
+              <div className="absolute top-4 right-4 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                </button>
+                <button type="button" onClick={() => moveQuestionDown(qIdx)} disabled={qIdx === questions.length - 1} className={`p-1.5 rounded ${qIdx === questions.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Down">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                <button type="button" onClick={() => removeQuestion(q.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete Question">
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
               
               <div className="flex items-center space-x-4 mb-4 pr-8">
-                <span className="font-bold text-gray-400">{q.type === 'section_header' ? '§' : `Q${idx + 1}`}</span>
+                <span className="font-bold text-gray-400">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
                 <input type="text" required value={q.question_text}
                   onChange={(e) => updateQuestion(q.id, 'question_text', e.target.value)}
                   className="flex-grow p-2 border rounded font-medium focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"

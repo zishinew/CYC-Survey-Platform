@@ -45,6 +45,7 @@ class SurveyList(BaseModel):
     id: str
     title: str
     description: Optional[str] = None
+    description_alignment: Optional[str] = "left"
     estimated_minutes: int
     is_active: bool
     has_been_published: bool = False
@@ -155,6 +156,7 @@ class QuestionCreate(BaseModel):
 class SurveyCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    description_alignment: Optional[str] = "left"
     estimated_minutes: int = 5
     is_active: bool = True
     has_been_published: bool = False
@@ -171,6 +173,7 @@ async def create_survey(survey: SurveyCreate):
         survey_res = supabase.table("surveys").insert({
             "title": survey.title,
             "description": survey.description,
+            "description_alignment": survey.description_alignment,
             "estimated_minutes": survey.estimated_minutes,
             "is_active": survey.is_active,
             "has_been_published": has_been_published,
@@ -224,6 +227,7 @@ async def duplicate_survey(survey_id: str):
         new_survey_res = supabase.table("surveys").insert({
             "title": f"{original_survey['title']} (Copy)",
             "description": original_survey.get("description"),
+            "description_alignment": original_survey.get("description_alignment", "left"),
             "estimated_minutes": original_survey.get("estimated_minutes", 5),
             "is_active": False,  # Duplicate should be inactive by default
             "has_been_published": False, # Duplicate hasn't been published
@@ -278,6 +282,7 @@ async def update_survey(survey_id: str, survey: SurveyCreate):
         survey_res = supabase.table("surveys").update({
             "title": survey.title,
             "description": survey.description,
+            "description_alignment": survey.description_alignment,
             "estimated_minutes": survey.estimated_minutes,
             "is_active": survey.is_active,
             "has_been_published": has_been_published,

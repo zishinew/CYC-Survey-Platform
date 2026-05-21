@@ -389,7 +389,7 @@ export default function SurveyPage() {
       <div className="flex-1 flex flex-col justify-center items-center px-4 w-full max-w-3xl mx-auto text-center h-full">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="w-full">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] mb-6 leading-tight">{survey.title}</h1>
-          <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed text-left">
+          <p className={`text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed text-${survey.description_alignment || 'left'}`}>
             {survey.description || "Share your voice and help empower Canadian youth."}
           </p>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setHasStarted(true)}
