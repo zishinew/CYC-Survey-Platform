@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cyc-primary: #0CB7C4;
+  --color-cyc-secondary: #F3FEFF;
+  --color-cyc-accent: #FEDF5B;
+  --color-cyc-bg: #FFFFFF;
+  --color-cyc-divider: #F3F4F6;
+  --color-cyc-text-heading: #1A2B5F;
+  --color-cyc-text-body: #374151;
+}
+
+body {
+  background-color: var(--color-cyc-bg);
+  color: var(--color-cyc-text-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-cyc-text-heading);
+}
+
+/* Custom utilities that we might need */
+.btn-primary {
+  @apply bg-[var(--color-cyc-accent)] text-[var(--color-cyc-secondary)] font-semibold py-2 px-4 rounded-lg shadow hover:bg-yellow-400 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-[var(--color-cyc-primary)] text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-teal-500 transition-colors;
+}
+
+.card {
+  @apply bg-white rounded-xl shadow-md border border-[var(--color-cyc-divider)] p-6 hover:shadow-lg transition-shadow;
+}

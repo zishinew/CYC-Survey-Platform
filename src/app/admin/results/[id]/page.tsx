@@ -378,7 +378,7 @@ export default function ResultsPage() {
                 .catch(e => { setAiError(e.message); setAiLoading(false); });
             }
           }}
-          className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-semibold transition-all ${(tab as string) === 'ai' ? 'bg-gradient-to-r from-purple-500 to-indigo-500 shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}
+          className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-semibold transition-all ${(tab as string) === 'ai' ? 'bg-white shadow text-[var(--color-cyc-secondary)]' : 'text-gray-500 hover:text-gray-700'}`}
         >
           <Sparkles className="w-4 h-4 mr-2" /> AI Insights
         </button>
@@ -513,28 +513,25 @@ export default function ResultsPage() {
         <div className="space-y-6">
           {aiLoading && (
             <div className="flex flex-col items-center justify-center py-20">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" />
-                <Sparkles className="w-6 h-6 text-purple-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-              </div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-cyc-primary)]" />
               <p className="mt-6 text-lg font-semibold text-[var(--color-cyc-secondary)]">Analyzing responses with AI...</p>
               <p className="text-sm text-gray-400 mt-1">This may take 15-30 seconds</p>
             </div>
           )}
 
           {aiError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-              <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
-              <p className="text-red-700 font-semibold mb-1">Analysis Failed</p>
-              <p className="text-red-500 text-sm mb-4">{aiError}</p>
+            <div className="bg-white rounded-xl shadow border border-gray-200 p-6 text-center">
+              <AlertTriangle className="w-8 h-8 text-[var(--color-cyc-accent)] mx-auto mb-3" />
+              <p className="text-[var(--color-cyc-secondary)] font-semibold mb-1">Analysis Failed</p>
+              <p className="text-gray-500 text-sm mb-4">{aiError}</p>
               <button onClick={() => {
                 setAiLoading(true); setAiError('');
                 fetch(`/api/surveys/${params.id}/ai-analysis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force_refresh: true }) })
                   .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
                   .then(d => { setAiAnalysis(d); setAiLoading(false); })
                   .catch(e => { setAiError(e.message); setAiLoading(false); });
-              }} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition-colors">
-                <RefreshCw className="w-4 h-4 inline mr-2" />Retry
+              }} className="btn-secondary inline-flex items-center text-sm">
+                <RefreshCw className="w-4 h-4 mr-2" />Retry
               </button>
             </div>
           )}
@@ -542,51 +539,53 @@ export default function ResultsPage() {
           {aiAnalysis && !aiLoading && (
             <>
               {/* Overall Score + Summary */}
-              <div className="bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+              <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                  {/* Score Ring */}
-                  <div className="relative w-32 h-32 flex-shrink-0">
+                  <div className="relative w-28 h-28 flex-shrink-0">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
-                      <circle cx="50" cy="50" r="42" fill="none" stroke="white" strokeWidth="8" strokeDasharray={`${(aiAnalysis.persuadability_score?.overall || 0) * 2.64} 264`} strokeLinecap="round" className="transition-all duration-1000" />
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="#F3F4F6" strokeWidth="8" />
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-cyc-primary)" strokeWidth="8" strokeDasharray={`${(aiAnalysis.persuadability_score?.overall || 0) * 2.64} 264`} strokeLinecap="round" className="transition-all duration-1000" />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-3xl font-extrabold">{aiAnalysis.persuadability_score?.overall || 0}</span>
-                      <span className="text-xs opacity-75">{aiAnalysis.persuadability_score?.label || 'N/A'}</span>
+                      <span className="text-2xl font-extrabold text-[var(--color-cyc-secondary)]">{aiAnalysis.persuadability_score?.overall || 0}</span>
+                      <span className="text-[10px] text-gray-400 font-semibold">{aiAnalysis.persuadability_score?.label || 'N/A'}</span>
                     </div>
                   </div>
-                  <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-extrabold mb-2 flex items-center justify-center sm:justify-start">
-                      <Sparkles className="w-6 h-6 mr-2" /> Persuadability Score
-                    </h2>
-                    <p className="text-white/80 leading-relaxed text-sm sm:text-base">{aiAnalysis.overall_summary}</p>
-                    <p className="text-xs text-white/50 mt-3">Based on {aiAnalysis.meta?.total_respondents || 0} respondents · Generated {aiAnalysis.meta?.generated_at ? new Date(aiAnalysis.meta.generated_at).toLocaleString() : 'just now'}</p>
+                  <div className="text-center sm:text-left flex-1">
+                    <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center justify-center sm:justify-start">
+                      <Sparkles className="w-4 h-4 mr-2 text-[var(--color-cyc-accent)]" />
+                      Persuadability Score
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">{aiAnalysis.overall_summary}</p>
+                    <p className="text-xs text-gray-400 mt-3">Based on {aiAnalysis.meta?.total_respondents || 0} respondents · Generated {aiAnalysis.meta?.generated_at ? new Date(aiAnalysis.meta.generated_at).toLocaleString() : 'just now'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Key Findings */}
               {aiAnalysis.key_findings?.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><Lightbulb className="w-5 h-5 mr-2 text-yellow-500" />Key Findings</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
+                    <Lightbulb className="w-4 h-4 mr-2 text-[var(--color-cyc-accent)]" />
+                    Key Findings
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-4">AI-detected patterns in your response data</p>
+                  <div className="space-y-3">
                     {aiAnalysis.key_findings.map((f: any, i: number) => {
                       const iconMap: Record<string, any> = { lightbulb: Lightbulb, trending_up: TrendingUp, users: Users, alert_triangle: AlertTriangle, bar_chart: BarChart3 };
                       const Icon = iconMap[f.icon] || Lightbulb;
-                      const confColor = f.confidence === 'High' ? 'bg-green-100 text-green-700' : f.confidence === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600';
+                      const confColor = f.confidence === 'High' ? 'bg-teal-50 text-[var(--color-cyc-primary)]' : f.confidence === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500';
                       return (
-                        <div key={i} className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:shadow-md transition-shadow">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                              <Icon className="w-5 h-5 text-purple-500" />
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                          <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Icon className="w-4 h-4 text-[var(--color-cyc-primary)]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <h4 className="text-sm font-semibold text-[var(--color-cyc-secondary)]">{f.title}</h4>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${confColor}`}>{f.confidence}</span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <h4 className="text-sm font-bold text-[var(--color-cyc-secondary)] truncate">{f.title}</h4>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${confColor}`}>{f.confidence}</span>
-                              </div>
-                              <p className="text-sm text-gray-600 leading-relaxed">{f.description}</p>
-                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed">{f.description}</p>
                           </div>
                         </div>
                       );
@@ -598,29 +597,27 @@ export default function ResultsPage() {
               {/* Demographic Segments */}
               {aiAnalysis.demographic_segments?.length > 0 && (
                 <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><Users className="w-5 h-5 mr-2 text-indigo-500" />Demographic Segments</h3>
+                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-[var(--color-cyc-primary)]" />
+                    Demographic Segments
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-4">Persuadability by respondent group</p>
                   <div className="space-y-4">
-                    {aiAnalysis.demographic_segments.map((seg: any, i: number) => {
-                      const barColor = seg.persuadability >= 70 ? 'from-green-400 to-emerald-500' : seg.persuadability >= 40 ? 'from-yellow-400 to-orange-400' : 'from-red-400 to-rose-500';
-                      return (
-                        <div key={i}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-gray-800">{seg.segment_name}</span>
-                              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{seg.size} respondent{seg.size !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-gray-500">{seg.label}</span>
-                              <span className="text-sm font-bold text-[var(--color-cyc-secondary)]">{seg.persuadability}</span>
-                            </div>
+                    {aiAnalysis.demographic_segments.map((seg: any, i: number) => (
+                      <div key={i}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">{seg.segment_name}</span>
+                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{seg.size}</span>
                           </div>
-                          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                            <div className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-700`} style={{ width: `${seg.persuadability}%` }} />
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{seg.key_trait}</p>
+                          <span className="text-gray-500">{seg.persuadability}/100 · {seg.label}</span>
                         </div>
-                      );
-                    })}
+                        <div className="w-full bg-gray-100 rounded-full h-2.5">
+                          <div className="bg-[var(--color-cyc-primary)] h-2.5 rounded-full transition-all duration-500" style={{ width: `${seg.persuadability}%` }} />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">{seg.key_trait}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -628,23 +625,27 @@ export default function ResultsPage() {
               {/* Opinion Flexibility */}
               {aiAnalysis.opinion_flexibility_map?.length > 0 && (
                 <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><TrendingUp className="w-5 h-5 mr-2 text-teal-500" />Opinion Flexibility Map</h3>
+                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
+                    <TrendingUp className="w-4 h-4 mr-2 text-[var(--color-cyc-primary)]" />
+                    Opinion Flexibility
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-4">How flexible opinions are on each topic</p>
                   <div className="space-y-3">
                     {aiAnalysis.opinion_flexibility_map.map((item: any, i: number) => {
-                      const sentimentColor: Record<string, string> = { 'Strongly For': 'text-green-600 bg-green-50', 'For': 'text-green-500 bg-green-50', 'Mixed': 'text-yellow-600 bg-yellow-50', 'Against': 'text-red-500 bg-red-50', 'Strongly Against': 'text-red-600 bg-red-50' };
+                      const sentimentColor: Record<string, string> = { 'Strongly For': 'bg-teal-50 text-[var(--color-cyc-primary)]', 'For': 'bg-teal-50 text-[var(--color-cyc-primary)]', 'Mixed': 'bg-amber-50 text-amber-600', 'Against': 'bg-red-50 text-red-500', 'Strongly Against': 'bg-red-50 text-red-600' };
                       return (
-                        <div key={i} className="border border-gray-100 rounded-lg p-4 hover:border-gray-200 transition-colors">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-semibold text-gray-800 flex-1 mr-4">{item.topic}</span>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sentimentColor[item.sentiment] || 'text-gray-600 bg-gray-50'}`}>{item.sentiment}</span>
-                              <span className="text-sm font-bold text-purple-600">{item.flexibility_score}</span>
+                        <div key={i}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium text-gray-700">{item.topic}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${sentimentColor[item.sentiment] || 'bg-gray-100 text-gray-500'}`}>{item.sentiment}</span>
+                              <span className="text-gray-500">{item.flexibility_score}/100</span>
                             </div>
                           </div>
-                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden mb-2">
-                            <div className="h-full rounded-full bg-gradient-to-r from-purple-400 to-indigo-500 transition-all duration-700" style={{ width: `${item.flexibility_score}%` }} />
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div className="bg-[var(--color-cyc-primary)] h-2.5 rounded-full transition-all duration-500" style={{ width: `${item.flexibility_score}%` }} />
                           </div>
-                          <p className="text-xs text-gray-500">{item.insight}</p>
+                          <p className="text-xs text-gray-400 mt-1">{item.insight}</p>
                         </div>
                       );
                     })}
@@ -655,16 +656,20 @@ export default function ResultsPage() {
               {/* Recommendations */}
               {aiAnalysis.recommendations?.length > 0 && (
                 <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><Target className="w-5 h-5 mr-2 text-orange-500" />Recommendations</h3>
-                  <div className="space-y-4">
+                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
+                    <Target className="w-4 h-4 mr-2 text-[var(--color-cyc-accent)]" />
+                    Recommendations
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-4">Suggested actions based on the analysis</p>
+                  <div className="space-y-3">
                     {aiAnalysis.recommendations.map((rec: any, i: number) => (
-                      <div key={i} className="flex gap-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 rounded-xl">
-                        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Zap className="w-4 h-4 text-orange-600" />
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Zap className="w-4 h-4 text-[var(--color-cyc-accent)]" />
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-800 mb-1">{rec.action}</h4>
-                          <p className="text-xs text-gray-500 mb-1"><span className="font-semibold text-gray-600">Target:</span> {rec.target_audience}</p>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-[var(--color-cyc-secondary)] mb-1">{rec.action}</h4>
+                          <p className="text-xs text-gray-500"><span className="font-semibold text-gray-600">Target:</span> {rec.target_audience}</p>
                           <p className="text-xs text-gray-500"><span className="font-semibold text-gray-600">Rationale:</span> {rec.rationale}</p>
                         </div>
                       </div>
@@ -673,7 +678,7 @@ export default function ResultsPage() {
                 </div>
               )}
 
-              {/* Regenerate Button */}
+              {/* Regenerate */}
               <div className="text-center pt-2">
                 <button onClick={() => {
                   setAiLoading(true); setAiError(''); setAiAnalysis(null);
