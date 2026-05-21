@@ -74,7 +74,8 @@ export default function EditSurvey() {
             section_description: !isArr ? q.options.description : undefined,
             description_alignment: (!isArr && q.options.description_alignment) ? q.options.description_alignment : undefined,
             attachments: !isArr ? q.options.attachments : undefined,
-            reference_number: (!isArr && q.options.has_calculator) ? 1 : undefined
+            reference_number: (!isArr && q.options.has_calculator) ? 1 : undefined,
+            definitions: !isArr ? q.options.definitions : undefined
           };
         });
         setQuestions(loadedQuestions);
@@ -268,6 +269,10 @@ export default function EditSurvey() {
             optionsPayload = { has_calculator: true };
           } else if (q.type === 'section_header') {
             optionsPayload = { description: q.section_description || '', attachments: q.attachments || [], description_alignment: q.description_alignment || 'left' };
+          }
+          if (q.definitions && q.definitions.length > 0) {
+            if (!optionsPayload) optionsPayload = {};
+            optionsPayload.definitions = q.definitions;
           }
           return {
             question_text: q.question_text,

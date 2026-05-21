@@ -22,7 +22,7 @@ const RichTextRenderer = ({ text, definitions }: { text: string; definitions?: {
         if (def) {
           return (
             <div key={i} className="relative inline-block group cursor-help mx-1">
-              <span className="font-bold underline decoration-wavy decoration-teal-400">{part}</span>
+              <span className="animated-wavy-underline">{part}</span>
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl z-50 text-center font-normal">
                 {def.definition}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>

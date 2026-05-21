@@ -216,6 +216,10 @@ export default function CreateSurvey() {
           } else if (q.type === 'section_header') {
             optionsPayload = { description: q.section_description || '', attachments: q.attachments || [], description_alignment: q.description_alignment || 'left' };
           }
+          if (q.definitions && q.definitions.length > 0) {
+            if (!optionsPayload) optionsPayload = {};
+            optionsPayload.definitions = q.definitions;
+          }
           return {
             question_text: q.question_text,
             type: q.type,
