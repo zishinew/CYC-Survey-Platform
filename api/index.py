@@ -760,6 +760,14 @@ async def _call_gemini(prompt: str, survey_id: str, total_respondents: int):
         cleaned = cleaned.strip()
 
     analysis = json_module.loads(cleaned)
+    
+    # Gracefully handle if the model mistakenly wraps the response in a JSON array
+    if isinstance(analysis, list):
+        if len(analysis) == 1 and isinstance(analysis[0], dict):
+            analysis = analysis[0]
+        else:
+            analysis = {"data": analysis}
+
     analysis["meta"] = {
         "survey_id": survey_id,
         "total_respondents": total_respondents,
