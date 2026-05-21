@@ -664,7 +664,7 @@ async def delete_share_link(link_id: str):
 import httpx
 import json as json_module
 
-GEMINI_MODEL = "gemini-3.0-flash"
+GEMINI_MODEL = "gemini-3-flash-preview"
 
 class AIAnalysisRequest(BaseModel):
     force_refresh: bool = False
