@@ -738,7 +738,7 @@ Guidelines:
 - Return ONLY valid JSON. No markdown formatting, no explanation text outside the JSON."""
 
         # 3. Call Gemini API
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GOOGLE_AI_KEY}"
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={GOOGLE_AI_KEY}"
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             gemini_res = await client.post(gemini_url, json={
