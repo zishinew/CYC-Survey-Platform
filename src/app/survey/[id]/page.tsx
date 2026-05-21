@@ -404,7 +404,7 @@ export default function SurveyPage() {
       <div className="flex-1 flex flex-col card p-4 sm:p-8 shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] relative overflow-hidden h-full">
         <AnimatePresence mode="wait">
           <motion.div key={currentStep} initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
-            className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full overflow-y-auto no-scrollbar pb-4">
+            className="flex-1 flex flex-col justify-start max-w-2xl mx-auto w-full overflow-y-auto no-scrollbar pb-4 pt-4 sm:pt-8">
             
             {/* EMAIL STEP */}
             {isEmailStep && (
