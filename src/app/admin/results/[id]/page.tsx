@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2, ChevronDown, ChevronUp, Calculator, Sparkles, Lightbulb, TrendingUp, Users, AlertTriangle, Target, Zap, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2, ChevronDown, ChevronUp, Calculator, Sparkles, Lightbulb, TrendingUp, Users, AlertTriangle, Target, Zap, RefreshCw, Brain, Eye, Search, Layers } from 'lucide-react';
+import AiInsightsTab from '@/components/AiInsightsTab';
 
 // --- STATS MATH HELPERS ---
 function calculateMedian(arr: number[]) {
@@ -74,9 +75,6 @@ export default function ResultsPage() {
   const [tab, setTab] = useState<'summary' | 'individual'>('summary');
   const [currentResponse, setCurrentResponse] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState<Record<string, boolean>>({});
-  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState('');
 
   const toggleAdvanced = (qId: string) => setShowAdvanced(prev => ({ ...prev, [qId]: !prev[qId] }));
 
@@ -363,21 +361,7 @@ export default function ResultsPage() {
           <User className="w-4 h-4 mr-2" /> Individual
         </button>
         <button
-          onClick={() => {
-            setTab('ai' as any);
-            if (!aiAnalysis && !aiLoading) {
-              setAiLoading(true);
-              setAiError('');
-              fetch(`/api/surveys/${params.id}/ai-analysis`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ force_refresh: false })
-              })
-                .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
-                .then(d => { setAiAnalysis(d); setAiLoading(false); })
-                .catch(e => { setAiError(e.message); setAiLoading(false); });
-            }
-          }}
+          onClick={() => setTab('ai' as any)}
           className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-semibold transition-all ${(tab as string) === 'ai' ? 'bg-white shadow text-[var(--color-cyc-secondary)]' : 'text-gray-500 hover:text-gray-700'}`}
         >
           <Sparkles className="w-4 h-4 mr-2" /> AI Insights
@@ -510,189 +494,7 @@ export default function ResultsPage() {
 
       {/* AI INSIGHTS TAB */}
       {(tab as string) === 'ai' && (
-        <div className="space-y-6">
-          {aiLoading && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-cyc-primary)]" />
-              <p className="mt-6 text-lg font-semibold text-[var(--color-cyc-secondary)]">Analyzing responses with AI...</p>
-              <p className="text-sm text-gray-400 mt-1">This may take 15-30 seconds</p>
-            </div>
-          )}
-
-          {aiError && (
-            <div className="bg-white rounded-xl shadow border border-gray-200 p-6 text-center">
-              <AlertTriangle className="w-8 h-8 text-[var(--color-cyc-accent)] mx-auto mb-3" />
-              <p className="text-[var(--color-cyc-secondary)] font-semibold mb-1">Analysis Failed</p>
-              <p className="text-gray-500 text-sm mb-4">{aiError}</p>
-              <button onClick={() => {
-                setAiLoading(true); setAiError('');
-                fetch(`/api/surveys/${params.id}/ai-analysis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force_refresh: true }) })
-                  .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
-                  .then(d => { setAiAnalysis(d); setAiLoading(false); })
-                  .catch(e => { setAiError(e.message); setAiLoading(false); });
-              }} className="btn-secondary inline-flex items-center text-sm">
-                <RefreshCw className="w-4 h-4 mr-2" />Retry
-              </button>
-            </div>
-          )}
-
-          {aiAnalysis && !aiLoading && (
-            <>
-              {/* Overall Score + Summary */}
-              <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                  <div className="relative w-28 h-28 flex-shrink-0">
-                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="42" fill="none" stroke="#F3F4F6" strokeWidth="8" />
-                      <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-cyc-primary)" strokeWidth="8" strokeDasharray={`${(aiAnalysis.persuadability_score?.overall || 0) * 2.64} 264`} strokeLinecap="round" className="transition-all duration-1000" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-extrabold text-[var(--color-cyc-secondary)]">{aiAnalysis.persuadability_score?.overall || 0}</span>
-                      <span className="text-[10px] text-gray-400 font-semibold">{aiAnalysis.persuadability_score?.label || 'N/A'}</span>
-                    </div>
-                  </div>
-                  <div className="text-center sm:text-left flex-1">
-                    <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center justify-center sm:justify-start">
-                      <Sparkles className="w-4 h-4 mr-2 text-[var(--color-cyc-accent)]" />
-                      Persuadability Score
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">{aiAnalysis.overall_summary}</p>
-                    <p className="text-xs text-gray-400 mt-3">Based on {aiAnalysis.meta?.total_respondents || 0} respondents · Generated {aiAnalysis.meta?.generated_at ? new Date(aiAnalysis.meta.generated_at).toLocaleString() : 'just now'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Key Findings */}
-              {aiAnalysis.key_findings?.length > 0 && (
-                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
-                    <Lightbulb className="w-4 h-4 mr-2 text-[var(--color-cyc-accent)]" />
-                    Key Findings
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-4">AI-detected patterns in your response data</p>
-                  <div className="space-y-3">
-                    {aiAnalysis.key_findings.map((f: any, i: number) => {
-                      const iconMap: Record<string, any> = { lightbulb: Lightbulb, trending_up: TrendingUp, users: Users, alert_triangle: AlertTriangle, bar_chart: BarChart3 };
-                      const Icon = iconMap[f.icon] || Lightbulb;
-                      const confColor = f.confidence === 'High' ? 'bg-teal-50 text-[var(--color-cyc-primary)]' : f.confidence === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500';
-                      return (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                          <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <Icon className="w-4 h-4 text-[var(--color-cyc-primary)]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <h4 className="text-sm font-semibold text-[var(--color-cyc-secondary)]">{f.title}</h4>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${confColor}`}>{f.confidence}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 leading-relaxed">{f.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Demographic Segments */}
-              {aiAnalysis.demographic_segments?.length > 0 && (
-                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
-                    <Users className="w-4 h-4 mr-2 text-[var(--color-cyc-primary)]" />
-                    Demographic Segments
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-4">Persuadability by respondent group</p>
-                  <div className="space-y-4">
-                    {aiAnalysis.demographic_segments.map((seg: any, i: number) => (
-                      <div key={i}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">{seg.segment_name}</span>
-                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{seg.size}</span>
-                          </div>
-                          <span className="text-gray-500">{seg.persuadability}/100 · {seg.label}</span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2.5">
-                          <div className="bg-[var(--color-cyc-primary)] h-2.5 rounded-full transition-all duration-500" style={{ width: `${seg.persuadability}%` }} />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">{seg.key_trait}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Opinion Flexibility */}
-              {aiAnalysis.opinion_flexibility_map?.length > 0 && (
-                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
-                    <TrendingUp className="w-4 h-4 mr-2 text-[var(--color-cyc-primary)]" />
-                    Opinion Flexibility
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-4">How flexible opinions are on each topic</p>
-                  <div className="space-y-3">
-                    {aiAnalysis.opinion_flexibility_map.map((item: any, i: number) => {
-                      const sentimentColor: Record<string, string> = { 'Strongly For': 'bg-teal-50 text-[var(--color-cyc-primary)]', 'For': 'bg-teal-50 text-[var(--color-cyc-primary)]', 'Mixed': 'bg-amber-50 text-amber-600', 'Against': 'bg-red-50 text-red-500', 'Strongly Against': 'bg-red-50 text-red-600' };
-                      return (
-                        <div key={i}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="font-medium text-gray-700">{item.topic}</span>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${sentimentColor[item.sentiment] || 'bg-gray-100 text-gray-500'}`}>{item.sentiment}</span>
-                              <span className="text-gray-500">{item.flexibility_score}/100</span>
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-100 rounded-full h-2.5">
-                            <div className="bg-[var(--color-cyc-primary)] h-2.5 rounded-full transition-all duration-500" style={{ width: `${item.flexibility_score}%` }} />
-                          </div>
-                          <p className="text-xs text-gray-400 mt-1">{item.insight}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Recommendations */}
-              {aiAnalysis.recommendations?.length > 0 && (
-                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-                  <h3 className="text-base font-bold text-[var(--color-cyc-secondary)] mb-1 flex items-center">
-                    <Target className="w-4 h-4 mr-2 text-[var(--color-cyc-accent)]" />
-                    Recommendations
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-4">Suggested actions based on the analysis</p>
-                  <div className="space-y-3">
-                    {aiAnalysis.recommendations.map((rec: any, i: number) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Zap className="w-4 h-4 text-[var(--color-cyc-accent)]" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-sm font-semibold text-[var(--color-cyc-secondary)] mb-1">{rec.action}</h4>
-                          <p className="text-xs text-gray-500"><span className="font-semibold text-gray-600">Target:</span> {rec.target_audience}</p>
-                          <p className="text-xs text-gray-500"><span className="font-semibold text-gray-600">Rationale:</span> {rec.rationale}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Regenerate */}
-              <div className="text-center pt-2">
-                <button onClick={() => {
-                  setAiLoading(true); setAiError(''); setAiAnalysis(null);
-                  fetch(`/api/surveys/${params.id}/ai-analysis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force_refresh: true }) })
-                    .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
-                    .then(d => { setAiAnalysis(d); setAiLoading(false); })
-                    .catch(e => { setAiError(e.message); setAiLoading(false); });
-                }} className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
-                  <RefreshCw className="w-4 h-4 mr-2" /> Regenerate Analysis
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <AiInsightsTab surveyId={params.id as string} totalRespondents={total_responses} />
       )}
     </div>
   );

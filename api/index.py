@@ -205,6 +205,60 @@ async def create_survey(survey: SurveyCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/surveys/{survey_id}/duplicate", response_model=SurveyDetail)
+async def duplicate_survey(survey_id: str):
+    """Duplicate an existing survey and its questions"""
+    try:
+        # 1. Fetch original survey
+        survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
+        if not survey_res.data:
+            raise HTTPException(status_code=404, detail="Survey not found")
+        
+        original_survey = survey_res.data[0]
+        
+        # 2. Fetch original questions
+        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
+        original_questions = questions_res.data
+        
+        # 3. Create new survey based on original
+        new_survey_res = supabase.table("surveys").insert({
+            "title": f"{original_survey['title']} (Copy)",
+            "description": original_survey.get("description"),
+            "estimated_minutes": original_survey.get("estimated_minutes", 5),
+            "is_active": False,  # Duplicate should be inactive by default
+            "has_been_published": False, # Duplicate hasn't been published
+            "thumbnail_url": original_survey.get("thumbnail_url")
+        }).execute()
+        
+        new_survey = new_survey_res.data[0]
+        
+        # 4. Duplicate questions
+        if original_questions:
+            questions_to_insert = []
+            for q in original_questions:
+                questions_to_insert.append({
+                    "survey_id": new_survey["id"],
+                    "question_text": q["question_text"],
+                    "type": q["type"],
+                    "order_index": q["order_index"],
+                    "options": q["options"],
+                    "is_required": q["is_required"],
+                    "is_conditional": q.get("is_conditional", False)
+                })
+            
+            new_questions_res = supabase.table("questions").insert(questions_to_insert).execute()
+            new_survey["questions"] = new_questions_res.data
+        else:
+            new_survey["questions"] = []
+            
+        new_survey["response_count"] = 0
+            
+        return new_survey
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.put("/api/surveys/{survey_id}", response_model=SurveyDetail)
 async def update_survey(survey_id: str, survey: SurveyCreate):
     """Update an existing survey and its questions. Fails if the survey has ever been published."""
@@ -600,82 +654,118 @@ async def delete_share_link(link_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- AI PERSUADABILITY ANALYSIS ---
+# --- AI ANALYSIS SUITE ---
+
+import httpx
+import json as json_module
+
+GEMINI_MODEL = "gemini-3.5-flash"
 
 class AIAnalysisRequest(BaseModel):
     force_refresh: bool = False
 
-@app.post("/api/surveys/{survey_id}/ai-analysis")
-async def ai_persuadability_analysis(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
-    """Use Google Gemini to perform persuadability analysis on survey responses."""
-    import httpx
-    import json as json_module
+def _gather_survey_data(survey_id: str):
+    """Shared helper: gather all survey data for AI analysis."""
+    survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
+    if not survey_res.data:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    survey = survey_res.data[0]
 
+    questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
+    questions = questions_res.data
+
+    sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).execute()
+    sessions = sessions_res.data
+
+    if len(sessions) < 3:
+        raise HTTPException(status_code=400, detail="Need at least 3 completed responses for AI analysis.")
+
+    session_ids = [s["id"] for s in sessions]
+    answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+    all_answers = answers_res.data
+
+    q_map = {q["id"]: q for q in questions}
+    answers_by_session = {}
+    for a in all_answers:
+        sid = a["session_id"]
+        if sid not in answers_by_session:
+            answers_by_session[sid] = []
+        answers_by_session[sid].append(a)
+
+    respondent_profiles = []
+    for s in sessions:
+        profile = {"respondent_id": s["id"][:8], "answers": {}}
+        for a in answers_by_session.get(s["id"], []):
+            q = q_map.get(a["question_id"])
+            if q:
+                q_text = q["question_text"]
+                if a.get("answer_text"):
+                    profile["answers"][q_text] = a["answer_text"]
+                elif a.get("answer_numeric") is not None:
+                    profile["answers"][q_text] = a["answer_numeric"]
+                elif a.get("answer_options"):
+                    profile["answers"][q_text] = a["answer_options"]
+        respondent_profiles.append(profile)
+
+    questions_summary = []
+    for q in questions:
+        if q["type"] == "section_header":
+            continue
+        q_info = {"text": q["question_text"], "type": q["type"]}
+        if q.get("options"):
+            opts = q["options"]
+            if isinstance(opts, dict):
+                q_info["choices"] = opts.get("choices", [])
+            elif isinstance(opts, list):
+                q_info["choices"] = opts
+        questions_summary.append(q_info)
+
+    return survey, questions_summary, respondent_profiles
+
+
+async def _call_gemini(prompt: str, survey_id: str, total_respondents: int):
+    """Shared helper: call Gemini and parse the JSON response."""
     GOOGLE_AI_KEY = os.environ.get("GOOGLE_AI_KEY")
     if not GOOGLE_AI_KEY:
         raise HTTPException(status_code=500, detail="Google AI API key not configured")
 
-    try:
-        # 1. Gather survey data
-        survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
-        if not survey_res.data:
-            raise HTTPException(status_code=404, detail="Survey not found")
-        survey = survey_res.data[0]
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GOOGLE_AI_KEY}"
 
-        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
-        questions = questions_res.data
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        gemini_res = await client.post(gemini_url, json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 8192,
+                "responseMimeType": "application/json"
+            }
+        })
 
-        sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).execute()
-        sessions = sessions_res.data
+    if gemini_res.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {gemini_res.status_code} - {gemini_res.text[:500]}")
 
-        if len(sessions) < 3:
-            raise HTTPException(status_code=400, detail="Need at least 3 completed responses for AI analysis.")
+    gemini_data = gemini_res.json()
+    raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
 
-        session_ids = [s["id"] for s in sessions]
-        answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
-        all_answers = answers_res.data
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[1]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
 
-        # Build a question lookup
-        q_map = {q["id"]: q for q in questions}
+    analysis = json_module.loads(cleaned)
+    analysis["meta"] = {
+        "survey_id": survey_id,
+        "total_respondents": total_respondents,
+        "generated_at": datetime.utcnow().isoformat()
+    }
+    return analysis
 
-        # Build structured respondent profiles
-        answers_by_session = {}
-        for a in all_answers:
-            sid = a["session_id"]
-            if sid not in answers_by_session:
-                answers_by_session[sid] = []
-            answers_by_session[sid].append(a)
 
-        respondent_profiles = []
-        for s in sessions:
-            profile = {"respondent_id": s["id"][:8], "answers": {}}
-            for a in answers_by_session.get(s["id"], []):
-                q = q_map.get(a["question_id"])
-                if q:
-                    q_text = q["question_text"]
-                    if a.get("answer_text"):
-                        profile["answers"][q_text] = a["answer_text"]
-                    elif a.get("answer_numeric") is not None:
-                        profile["answers"][q_text] = a["answer_numeric"]
-                    elif a.get("answer_options"):
-                        profile["answers"][q_text] = a["answer_options"]
-            respondent_profiles.append(profile)
-
-        # 2. Build the prompt
-        questions_summary = []
-        for q in questions:
-            if q["type"] == "section_header":
-                continue
-            q_info = {"text": q["question_text"], "type": q["type"]}
-            if q.get("options"):
-                opts = q["options"]
-                if isinstance(opts, dict):
-                    q_info["choices"] = opts.get("choices", [])
-                elif isinstance(opts, list):
-                    q_info["choices"] = opts
-            questions_summary.append(q_info)
-
-        prompt = f"""You are an expert policy research analyst working for a Canadian youth advocacy organization called CYC (Canadian Youth Cabinet). Analyze the following survey data and produce a comprehensive Persuadability Detection report.
+def _base_context(survey, questions_summary, respondent_profiles):
+    """Build the shared context block for all prompts."""
+    return f"""You are an expert policy research analyst working for a Canadian youth advocacy organization called CYC (Canadian Youth Cabinet).
 
 Survey: "{survey['title']}"
 Description: {survey.get('description', 'N/A')}
@@ -685,104 +775,224 @@ Questions asked:
 {json_module.dumps(questions_summary, indent=2)}
 
 Respondent data (each respondent's answers):
-{json_module.dumps(respondent_profiles, indent=2)}
+{json_module.dumps(respondent_profiles, indent=2)}"""
 
-Produce a JSON response with EXACTLY this structure (no markdown, no code fences, raw JSON only):
-{{
-  "overall_summary": "A 2-3 sentence executive summary of the persuadability landscape across all respondents.",
-  "persuadability_score": {{
-    "overall": <number 0-100 representing how persuadable the overall respondent pool is>,
-    "label": "<Low|Moderate|High|Very High>"
-  }},
-  "key_findings": [
-    {{
-      "title": "Short finding title",
-      "description": "1-2 sentence explanation",
-      "confidence": "<High|Medium|Low>",
-      "icon": "<one of: lightbulb, trending_up, users, alert_triangle, bar_chart>"
-    }}
-  ],
-  "demographic_segments": [
-    {{
-      "segment_name": "Name of demographic group",
-      "size": <number of respondents in this segment>,
-      "persuadability": <0-100>,
-      "label": "<Fixed|Leaning Fixed|Moderate|Leaning Flexible|Flexible>",
-      "key_trait": "One sentence describing the defining characteristic"
-    }}
-  ],
-  "opinion_flexibility_map": [
-    {{
-      "topic": "The question/topic area",
-      "flexibility_score": <0-100>,
-      "sentiment": "<Strongly Against|Against|Mixed|For|Strongly For>",
-      "insight": "One sentence insight"
-    }}
-  ],
-  "recommendations": [
-    {{
-      "action": "Specific recommended action",
-      "target_audience": "Who this targets",
-      "rationale": "Why this would be effective"
-    }}
-  ]
-}}
 
-Guidelines:
-- Identify demographic patterns from answers (age, background etc.) if any demographic questions exist.
-- For rating/likert questions, identify high variance as an indicator of persuadability.
-- For multiple choice, identify split responses as indicators of opinion still forming.
-- Short answer responses should be analyzed for sentiment strength and certainty language.
-- Be specific and data-driven. Reference actual response patterns.
-- If there are fewer than 10 responses, note limited statistical significance but still provide insights.
-- Return ONLY valid JSON. No markdown formatting, no explanation text outside the JSON."""
+# --- 1. PERSUADABILITY DETECTION ---
 
-        # 3. Call Gemini API
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={GOOGLE_AI_KEY}"
+@app.post("/api/surveys/{survey_id}/ai-analysis")
+async def ai_persuadability_analysis(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    try:
+        survey, questions_summary, profiles = _gather_survey_data(survey_id)
+        prompt = _base_context(survey, questions_summary, profiles) + """
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            gemini_res = await client.post(gemini_url, json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.3,
-                    "maxOutputTokens": 4096,
-                    "responseMimeType": "application/json"
-                }
-            })
+Produce a Persuadability Detection report as JSON with EXACTLY this structure:
+{
+  "overall_summary": "2-3 sentence executive summary of the persuadability landscape.",
+  "persuadability_score": { "overall": <0-100>, "label": "<Low|Moderate|High|Very High>" },
+  "key_findings": [{ "title": "...", "description": "...", "confidence": "<High|Medium|Low>", "icon": "<lightbulb|trending_up|users|alert_triangle|bar_chart>" }],
+  "demographic_segments": [{ "segment_name": "...", "size": <n>, "persuadability": <0-100>, "label": "<Fixed|Leaning Fixed|Moderate|Leaning Flexible|Flexible>", "key_trait": "..." }],
+  "opinion_flexibility_map": [{ "topic": "...", "flexibility_score": <0-100>, "sentiment": "<Strongly Against|Against|Mixed|For|Strongly For>", "insight": "..." }],
+  "recommendations": [{ "action": "...", "target_audience": "...", "rationale": "..." }]
+}
 
-        if gemini_res.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Gemini API error: {gemini_res.status_code} - {gemini_res.text[:500]}")
+Guidelines: High variance in rating/likert = persuadable. Split multiple choice = opinion still forming. Analyze sentiment strength in short answers. Be specific and data-driven. Return ONLY valid JSON."""
 
-        gemini_data = gemini_res.json()
-        raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
-
-        # Parse the JSON response
-        # Strip any markdown fences if present
-        cleaned = raw_text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            cleaned = cleaned.strip()
-
-        analysis = json_module.loads(cleaned)
-        analysis["meta"] = {
-            "survey_id": survey_id,
-            "total_respondents": len(respondent_profiles),
-            "generated_at": datetime.utcnow().isoformat()
-        }
-
-        return analysis
-
+        return await _call_gemini(prompt, survey_id, len(profiles))
     except HTTPException:
         raise
     except json_module.JSONDecodeError as e:
-        raise HTTPException(status_code=502, detail=f"Failed to parse AI response as JSON: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 2. PUBLIC MOOD HEATMAP ---
+
+@app.post("/api/surveys/{survey_id}/ai-mood")
+async def ai_mood_heatmap(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    try:
+        survey, questions_summary, profiles = _gather_survey_data(survey_id)
+        prompt = _base_context(survey, questions_summary, profiles) + """
+
+Produce a Public Mood Heatmap report as JSON with EXACTLY this structure:
+{
+  "overall_mood": { "label": "<e.g. Cautiously Optimistic>", "description": "2-3 sentence summary of the overall emotional landscape." },
+  "mood_dimensions": [
+    { "dimension": "Optimism", "score": <0-100>, "insight": "One sentence explanation" },
+    { "dimension": "Anxiety", "score": <0-100>, "insight": "..." },
+    { "dimension": "Trust", "score": <0-100>, "insight": "..." },
+    { "dimension": "Frustration", "score": <0-100>, "insight": "..." },
+    { "dimension": "Hope", "score": <0-100>, "insight": "..." }
+  ],
+  "demographic_mood": [{ "group": "...", "dominant_mood": "...", "score": <0-100>, "note": "..." }],
+  "emerging_concerns": [{ "concern": "...", "urgency": "<High|Medium|Low>", "evidence": "..." }],
+  "mood_shifts": [{ "topic": "...", "direction": "<Rising|Falling|Stable>", "detail": "..." }]
+}
+
+Guidelines: Aggregate emotional indicators from response patterns. Measure optimism vs anxiety from sentiment in answers. Detect frustration from strong negative language. Identify trust levels from institutional-related questions. Return ONLY valid JSON."""
+
+        return await _call_gemini(prompt, survey_id, len(profiles))
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 3. BELIEF NETWORK GRAPH ---
+
+@app.post("/api/surveys/{survey_id}/ai-beliefs")
+async def ai_belief_network(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    try:
+        survey, questions_summary, profiles = _gather_survey_data(survey_id)
+        prompt = _base_context(survey, questions_summary, profiles) + """
+
+Produce a Belief Network Graph report as JSON with EXACTLY this structure:
+{
+  "summary": "2-3 sentence overview of the belief network landscape.",
+  "belief_clusters": [
+    { "cluster_name": "...", "beliefs": ["belief 1", "belief 2", "..."], "size": <respondents in cluster>, "description": "..." }
+  ],
+  "correlations": [
+    { "belief_a": "...", "belief_b": "...", "strength": <0-100>, "relationship": "<Reinforcing|Opposing|Surprising>", "detail": "..." }
+  ],
+  "key_patterns": [{ "pattern": "...", "description": "...", "confidence": "<High|Medium|Low>" }],
+  "surprising_connections": [{ "connection": "...", "why_surprising": "...", "evidence": "..." }]
+}
+
+Guidelines: Detect correlations between responses across questions. Identify which beliefs cluster together. Find opposing belief pairs. Highlight counter-intuitive pairings. Be specific — reference actual answer patterns. Return ONLY valid JSON."""
+
+        return await _call_gemini(prompt, survey_id, len(profiles))
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 4. MINORITY INSIGHT AMPLIFIER ---
+
+@app.post("/api/surveys/{survey_id}/ai-minority")
+async def ai_minority_insights(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    try:
+        survey, questions_summary, profiles = _gather_survey_data(survey_id)
+        prompt = _base_context(survey, questions_summary, profiles) + """
+
+Produce a Minority Insight Amplifier report as JSON with EXACTLY this structure:
+{
+  "summary": "2-3 sentence overview of minority concerns detected.",
+  "amplified_concerns": [
+    {
+      "concern": "The issue or concern",
+      "percentage": <% of respondents who raised it>,
+      "intensity": <0-100 intensity score>,
+      "intensity_label": "<Critical|High|Elevated|Moderate>",
+      "concentration": "Where/who this is concentrated among",
+      "evidence": "Specific response patterns supporting this",
+      "why_it_matters": "Why this warrants attention despite low volume"
+    }
+  ],
+  "overlooked_demographics": [{ "group": "...", "concern": "...", "detail": "..." }],
+  "recommended_actions": [{ "action": "...", "priority": "<High|Medium|Low>", "rationale": "..." }]
+}
+
+Guidelines: Focus on issues raised by <25% of respondents but with unusually high emotional intensity or concentration. Look for geographic/demographic clustering. Prioritize concerns with disproportionate potential impact. Detect urgency language in open-ended responses. Return ONLY valid JSON."""
+
+        return await _call_gemini(prompt, survey_id, len(profiles))
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 5. RESPONDENT ARCHETYPE GENERATOR ---
+
+@app.post("/api/surveys/{survey_id}/ai-archetypes")
+async def ai_archetypes(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    try:
+        survey, questions_summary, profiles = _gather_survey_data(survey_id)
+        prompt = _base_context(survey, questions_summary, profiles) + """
+
+Produce a Respondent Archetype Generator report as JSON with EXACTLY this structure:
+{
+  "summary": "2-3 sentence overview of the respondent archetypes identified.",
+  "archetypes": [
+    {
+      "name": "Creative archetype name (e.g. 'Pragmatic Skeptic')",
+      "size": <number of respondents fitting this archetype>,
+      "percentage": <% of total>,
+      "description": "2-3 sentence description of this archetype",
+      "key_traits": ["trait 1", "trait 2", "trait 3"],
+      "values": "What this group values most",
+      "policy_stance": "Their general policy orientation",
+      "engagement_level": "<Highly Engaged|Engaged|Moderate|Low|Disengaged>"
+    }
+  ],
+  "archetype_comparison": [
+    { "dimension": "A key dimension (e.g. 'Trust in Government')", "scores": { "<archetype_name>": <0-100> } }
+  ],
+  "implications": [{ "insight": "...", "recommendation": "..." }]
+}
+
+Guidelines: Cluster respondents by recurring patterns in attitudes, values, and priorities. Go beyond simple demographics — create meaningful behavioural personas. Give each archetype an intuitive, memorable name. Provide 3-5 archetypes. Return ONLY valid JSON."""
+
+        return await _call_gemini(prompt, survey_id, len(profiles))
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 6. SURVEY BLIND SPOT ANALYZER ---
+
+@app.post("/api/surveys/{survey_id}/ai-blindspots")
+async def ai_blindspots(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    try:
+        survey, questions_summary, profiles = _gather_survey_data(survey_id)
+        prompt = _base_context(survey, questions_summary, profiles) + """
+
+Produce a Survey Blind Spot Analyzer report as JSON with EXACTLY this structure:
+{
+  "summary": "2-3 sentence overview of the survey's coverage and gaps.",
+  "coverage_score": { "overall": <0-100>, "label": "<Comprehensive|Good|Moderate|Limited|Narrow>" },
+  "blind_spots": [
+    {
+      "topic": "The underexplored topic",
+      "severity": "<Critical|Significant|Minor>",
+      "evidence": "What in the responses suggests this gap",
+      "suggested_questions": ["Specific question to add in future"]
+    }
+  ],
+  "emerging_themes": [
+    { "theme": "...", "frequency": "<Frequent|Occasional|Rare>", "source": "Where this appeared (e.g. open-ended responses)", "detail": "..." }
+  ],
+  "methodology_flags": [
+    { "issue": "...", "severity": "<High|Medium|Low>", "suggestion": "..." }
+  ],
+  "improvement_recommendations": [
+    { "recommendation": "...", "priority": "<High|Medium|Low>", "rationale": "..." }
+  ]
+}
+
+Guidelines: Review which topics the survey covers well and where gaps exist. Look for recurring themes in open-ended responses not reflected in structured questions. Flag potential question bias or missing response options. Suggest specific new questions for future iterations. Return ONLY valid JSON."""
+
+        return await _call_gemini(prompt, survey_id, len(profiles))
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

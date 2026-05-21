@@ -85,6 +85,22 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDuplicate = async (survey: any) => {
+    try {
+      const res = await fetch(`/api/surveys/${survey.id}/duplicate`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        fetchSurveys();
+      } else {
+        alert("Failed to duplicate survey.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while duplicating.");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('cyc_admin_auth');
     router.push('/admin/login');
@@ -233,6 +249,15 @@ export default function AdminDashboard() {
                         Locked
                       </span>
                     )}
+
+                    <button 
+                      onClick={() => handleDuplicate(survey)}
+                      className="text-gray-500 hover:text-gray-700 flex items-center"
+                      title="Duplicate Survey"
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Duplicate
+                    </button>
 
                     <button 
                       onClick={() => handleDelete(survey)}
