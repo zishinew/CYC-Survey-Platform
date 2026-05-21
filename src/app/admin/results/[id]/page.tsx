@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2, ChevronDown, ChevronUp, Calculator } from 'lucide-react';
+import { ArrowLeft, BarChart3, User, ChevronLeft, ChevronRight, Trash2, ChevronDown, ChevronUp, Calculator, Sparkles, Lightbulb, TrendingUp, Users, AlertTriangle, Target, Zap, RefreshCw } from 'lucide-react';
 
 // --- STATS MATH HELPERS ---
 function calculateMedian(arr: number[]) {
@@ -74,6 +74,9 @@ export default function ResultsPage() {
   const [tab, setTab] = useState<'summary' | 'individual'>('summary');
   const [currentResponse, setCurrentResponse] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState<Record<string, boolean>>({});
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const toggleAdvanced = (qId: string) => setShowAdvanced(prev => ({ ...prev, [qId]: !prev[qId] }));
 
@@ -346,8 +349,7 @@ export default function ResultsPage() {
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-8 max-w-xs">
+      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-8 max-w-md">
         <button
           onClick={() => setTab('summary')}
           className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === 'summary' ? 'bg-white shadow text-[var(--color-cyc-secondary)]' : 'text-gray-500 hover:text-gray-700'}`}
@@ -359,6 +361,26 @@ export default function ResultsPage() {
           className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === 'individual' ? 'bg-white shadow text-[var(--color-cyc-secondary)]' : 'text-gray-500 hover:text-gray-700'}`}
         >
           <User className="w-4 h-4 mr-2" /> Individual
+        </button>
+        <button
+          onClick={() => {
+            setTab('ai' as any);
+            if (!aiAnalysis && !aiLoading) {
+              setAiLoading(true);
+              setAiError('');
+              fetch(`/api/surveys/${params.id}/ai-analysis`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ force_refresh: false })
+              })
+                .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
+                .then(d => { setAiAnalysis(d); setAiLoading(false); })
+                .catch(e => { setAiError(e.message); setAiLoading(false); });
+            }
+          }}
+          className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-semibold transition-all ${(tab as string) === 'ai' ? 'bg-gradient-to-r from-purple-500 to-indigo-500 shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <Sparkles className="w-4 h-4 mr-2" /> AI Insights
         </button>
       </div>
 
@@ -480,6 +502,188 @@ export default function ResultsPage() {
                     </div>
                   );
                 })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* AI INSIGHTS TAB */}
+      {(tab as string) === 'ai' && (
+        <div className="space-y-6">
+          {aiLoading && (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" />
+                <Sparkles className="w-6 h-6 text-purple-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              </div>
+              <p className="mt-6 text-lg font-semibold text-[var(--color-cyc-secondary)]">Analyzing responses with AI...</p>
+              <p className="text-sm text-gray-400 mt-1">This may take 15-30 seconds</p>
+            </div>
+          )}
+
+          {aiError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+              <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
+              <p className="text-red-700 font-semibold mb-1">Analysis Failed</p>
+              <p className="text-red-500 text-sm mb-4">{aiError}</p>
+              <button onClick={() => {
+                setAiLoading(true); setAiError('');
+                fetch(`/api/surveys/${params.id}/ai-analysis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force_refresh: true }) })
+                  .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
+                  .then(d => { setAiAnalysis(d); setAiLoading(false); })
+                  .catch(e => { setAiError(e.message); setAiLoading(false); });
+              }} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition-colors">
+                <RefreshCw className="w-4 h-4 inline mr-2" />Retry
+              </button>
+            </div>
+          )}
+
+          {aiAnalysis && !aiLoading && (
+            <>
+              {/* Overall Score + Summary */}
+              <div className="bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  {/* Score Ring */}
+                  <div className="relative w-32 h-32 flex-shrink-0">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
+                      <circle cx="50" cy="50" r="42" fill="none" stroke="white" strokeWidth="8" strokeDasharray={`${(aiAnalysis.persuadability_score?.overall || 0) * 2.64} 264`} strokeLinecap="round" className="transition-all duration-1000" />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-extrabold">{aiAnalysis.persuadability_score?.overall || 0}</span>
+                      <span className="text-xs opacity-75">{aiAnalysis.persuadability_score?.label || 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h2 className="text-2xl font-extrabold mb-2 flex items-center justify-center sm:justify-start">
+                      <Sparkles className="w-6 h-6 mr-2" /> Persuadability Score
+                    </h2>
+                    <p className="text-white/80 leading-relaxed text-sm sm:text-base">{aiAnalysis.overall_summary}</p>
+                    <p className="text-xs text-white/50 mt-3">Based on {aiAnalysis.meta?.total_respondents || 0} respondents · Generated {aiAnalysis.meta?.generated_at ? new Date(aiAnalysis.meta.generated_at).toLocaleString() : 'just now'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Key Findings */}
+              {aiAnalysis.key_findings?.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><Lightbulb className="w-5 h-5 mr-2 text-yellow-500" />Key Findings</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {aiAnalysis.key_findings.map((f: any, i: number) => {
+                      const iconMap: Record<string, any> = { lightbulb: Lightbulb, trending_up: TrendingUp, users: Users, alert_triangle: AlertTriangle, bar_chart: BarChart3 };
+                      const Icon = iconMap[f.icon] || Lightbulb;
+                      const confColor = f.confidence === 'High' ? 'bg-green-100 text-green-700' : f.confidence === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600';
+                      return (
+                        <div key={i} className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                              <Icon className="w-5 h-5 text-purple-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className="text-sm font-bold text-[var(--color-cyc-secondary)] truncate">{f.title}</h4>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${confColor}`}>{f.confidence}</span>
+                              </div>
+                              <p className="text-sm text-gray-600 leading-relaxed">{f.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Demographic Segments */}
+              {aiAnalysis.demographic_segments?.length > 0 && (
+                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><Users className="w-5 h-5 mr-2 text-indigo-500" />Demographic Segments</h3>
+                  <div className="space-y-4">
+                    {aiAnalysis.demographic_segments.map((seg: any, i: number) => {
+                      const barColor = seg.persuadability >= 70 ? 'from-green-400 to-emerald-500' : seg.persuadability >= 40 ? 'from-yellow-400 to-orange-400' : 'from-red-400 to-rose-500';
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-800">{seg.segment_name}</span>
+                              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{seg.size} respondent{seg.size !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-500">{seg.label}</span>
+                              <span className="text-sm font-bold text-[var(--color-cyc-secondary)]">{seg.persuadability}</span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                            <div className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-700`} style={{ width: `${seg.persuadability}%` }} />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">{seg.key_trait}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Opinion Flexibility */}
+              {aiAnalysis.opinion_flexibility_map?.length > 0 && (
+                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><TrendingUp className="w-5 h-5 mr-2 text-teal-500" />Opinion Flexibility Map</h3>
+                  <div className="space-y-3">
+                    {aiAnalysis.opinion_flexibility_map.map((item: any, i: number) => {
+                      const sentimentColor: Record<string, string> = { 'Strongly For': 'text-green-600 bg-green-50', 'For': 'text-green-500 bg-green-50', 'Mixed': 'text-yellow-600 bg-yellow-50', 'Against': 'text-red-500 bg-red-50', 'Strongly Against': 'text-red-600 bg-red-50' };
+                      return (
+                        <div key={i} className="border border-gray-100 rounded-lg p-4 hover:border-gray-200 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-gray-800 flex-1 mr-4">{item.topic}</span>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sentimentColor[item.sentiment] || 'text-gray-600 bg-gray-50'}`}>{item.sentiment}</span>
+                              <span className="text-sm font-bold text-purple-600">{item.flexibility_score}</span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden mb-2">
+                            <div className="h-full rounded-full bg-gradient-to-r from-purple-400 to-indigo-500 transition-all duration-700" style={{ width: `${item.flexibility_score}%` }} />
+                          </div>
+                          <p className="text-xs text-gray-500">{item.insight}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {aiAnalysis.recommendations?.length > 0 && (
+                <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+                  <h3 className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-4 flex items-center"><Target className="w-5 h-5 mr-2 text-orange-500" />Recommendations</h3>
+                  <div className="space-y-4">
+                    {aiAnalysis.recommendations.map((rec: any, i: number) => (
+                      <div key={i} className="flex gap-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Zap className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-800 mb-1">{rec.action}</h4>
+                          <p className="text-xs text-gray-500 mb-1"><span className="font-semibold text-gray-600">Target:</span> {rec.target_audience}</p>
+                          <p className="text-xs text-gray-500"><span className="font-semibold text-gray-600">Rationale:</span> {rec.rationale}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Regenerate Button */}
+              <div className="text-center pt-2">
+                <button onClick={() => {
+                  setAiLoading(true); setAiError(''); setAiAnalysis(null);
+                  fetch(`/api/surveys/${params.id}/ai-analysis`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force_refresh: true }) })
+                    .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || 'Analysis failed'); }); return res.json(); })
+                    .then(d => { setAiAnalysis(d); setAiLoading(false); })
+                    .catch(e => { setAiError(e.message); setAiLoading(false); });
+                }} className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Regenerate Analysis
+                </button>
               </div>
             </>
           )}

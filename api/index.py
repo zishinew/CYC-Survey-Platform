@@ -600,6 +600,189 @@ async def delete_share_link(link_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- AI PERSUADABILITY ANALYSIS ---
+
+class AIAnalysisRequest(BaseModel):
+    force_refresh: bool = False
+
+@app.post("/api/surveys/{survey_id}/ai-analysis")
+async def ai_persuadability_analysis(survey_id: str, body: AIAnalysisRequest = AIAnalysisRequest()):
+    """Use Google Gemini to perform persuadability analysis on survey responses."""
+    import httpx
+    import json as json_module
+
+    GOOGLE_AI_KEY = os.environ.get("GOOGLE_AI_KEY")
+    if not GOOGLE_AI_KEY:
+        raise HTTPException(status_code=500, detail="Google AI API key not configured")
+
+    try:
+        # 1. Gather survey data
+        survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
+        if not survey_res.data:
+            raise HTTPException(status_code=404, detail="Survey not found")
+        survey = survey_res.data[0]
+
+        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
+        questions = questions_res.data
+
+        sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).execute()
+        sessions = sessions_res.data
+
+        if len(sessions) < 3:
+            raise HTTPException(status_code=400, detail="Need at least 3 completed responses for AI analysis.")
+
+        session_ids = [s["id"] for s in sessions]
+        answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+        all_answers = answers_res.data
+
+        # Build a question lookup
+        q_map = {q["id"]: q for q in questions}
+
+        # Build structured respondent profiles
+        answers_by_session = {}
+        for a in all_answers:
+            sid = a["session_id"]
+            if sid not in answers_by_session:
+                answers_by_session[sid] = []
+            answers_by_session[sid].append(a)
+
+        respondent_profiles = []
+        for s in sessions:
+            profile = {"respondent_id": s["id"][:8], "answers": {}}
+            for a in answers_by_session.get(s["id"], []):
+                q = q_map.get(a["question_id"])
+                if q:
+                    q_text = q["question_text"]
+                    if a.get("answer_text"):
+                        profile["answers"][q_text] = a["answer_text"]
+                    elif a.get("answer_numeric") is not None:
+                        profile["answers"][q_text] = a["answer_numeric"]
+                    elif a.get("answer_options"):
+                        profile["answers"][q_text] = a["answer_options"]
+            respondent_profiles.append(profile)
+
+        # 2. Build the prompt
+        questions_summary = []
+        for q in questions:
+            if q["type"] == "section_header":
+                continue
+            q_info = {"text": q["question_text"], "type": q["type"]}
+            if q.get("options"):
+                opts = q["options"]
+                if isinstance(opts, dict):
+                    q_info["choices"] = opts.get("choices", [])
+                elif isinstance(opts, list):
+                    q_info["choices"] = opts
+            questions_summary.append(q_info)
+
+        prompt = f"""You are an expert policy research analyst working for a Canadian youth advocacy organization called CYC (Canadian Youth Cabinet). Analyze the following survey data and produce a comprehensive Persuadability Detection report.
+
+Survey: "{survey['title']}"
+Description: {survey.get('description', 'N/A')}
+Total respondents: {len(respondent_profiles)}
+
+Questions asked:
+{json_module.dumps(questions_summary, indent=2)}
+
+Respondent data (each respondent's answers):
+{json_module.dumps(respondent_profiles, indent=2)}
+
+Produce a JSON response with EXACTLY this structure (no markdown, no code fences, raw JSON only):
+{{
+  "overall_summary": "A 2-3 sentence executive summary of the persuadability landscape across all respondents.",
+  "persuadability_score": {{
+    "overall": <number 0-100 representing how persuadable the overall respondent pool is>,
+    "label": "<Low|Moderate|High|Very High>"
+  }},
+  "key_findings": [
+    {{
+      "title": "Short finding title",
+      "description": "1-2 sentence explanation",
+      "confidence": "<High|Medium|Low>",
+      "icon": "<one of: lightbulb, trending_up, users, alert_triangle, bar_chart>"
+    }}
+  ],
+  "demographic_segments": [
+    {{
+      "segment_name": "Name of demographic group",
+      "size": <number of respondents in this segment>,
+      "persuadability": <0-100>,
+      "label": "<Fixed|Leaning Fixed|Moderate|Leaning Flexible|Flexible>",
+      "key_trait": "One sentence describing the defining characteristic"
+    }}
+  ],
+  "opinion_flexibility_map": [
+    {{
+      "topic": "The question/topic area",
+      "flexibility_score": <0-100>,
+      "sentiment": "<Strongly Against|Against|Mixed|For|Strongly For>",
+      "insight": "One sentence insight"
+    }}
+  ],
+  "recommendations": [
+    {{
+      "action": "Specific recommended action",
+      "target_audience": "Who this targets",
+      "rationale": "Why this would be effective"
+    }}
+  ]
+}}
+
+Guidelines:
+- Identify demographic patterns from answers (age, background etc.) if any demographic questions exist.
+- For rating/likert questions, identify high variance as an indicator of persuadability.
+- For multiple choice, identify split responses as indicators of opinion still forming.
+- Short answer responses should be analyzed for sentiment strength and certainty language.
+- Be specific and data-driven. Reference actual response patterns.
+- If there are fewer than 10 responses, note limited statistical significance but still provide insights.
+- Return ONLY valid JSON. No markdown formatting, no explanation text outside the JSON."""
+
+        # 3. Call Gemini API
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GOOGLE_AI_KEY}"
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            gemini_res = await client.post(gemini_url, json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.3,
+                    "maxOutputTokens": 4096,
+                    "responseMimeType": "application/json"
+                }
+            })
+
+        if gemini_res.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Gemini API error: {gemini_res.status_code} - {gemini_res.text[:500]}")
+
+        gemini_data = gemini_res.json()
+        raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Parse the JSON response
+        # Strip any markdown fences if present
+        cleaned = raw_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+
+        analysis = json_module.loads(cleaned)
+        analysis["meta"] = {
+            "survey_id": survey_id,
+            "total_respondents": len(respondent_profiles),
+            "generated_at": datetime.utcnow().isoformat()
+        }
+
+        return analysis
+
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response as JSON: {str(e)}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
