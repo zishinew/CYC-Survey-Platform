@@ -391,7 +391,7 @@ export default function ResultsPage() {
                           <span className="text-gray-500">{count} ({pct}%)</span>
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-2.5">
-                          <div className="bg-gradient-to-r from-indigo-400 to-purple-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                          <div className="bg-[var(--color-cyc-primary)] h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     );
