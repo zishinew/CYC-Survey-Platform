@@ -16,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" style={{ zoom: 0.85 }}>
-      <body className={`${inter.className} min-h-[100dvh] w-screen flex flex-col overflow-x-hidden`}>
+    <html lang="en" style={{ fontSize: '85%' }}>
+      <body className={`${inter.className} min-h-[100dvh] w-full flex flex-col overflow-x-hidden`}>
         <Header />
         <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col relative pb-10">
           {children}
