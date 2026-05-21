@@ -448,7 +448,9 @@ export default function SurveyPage() {
               {currentQuestion.type === 'section_header' && (
                 <div className="space-y-4">
                   {opts.description && (
-                    <p className="text-base text-gray-600 leading-relaxed whitespace-pre-wrap text-left">{opts.description}</p>
+                    <p className={`text-base text-gray-600 leading-relaxed whitespace-pre-wrap text-${opts.description_alignment || 'left'}`}>
+                      {opts.description}
+                    </p>
                   )}
                   {opts.attachments.length > 0 && (
                     <div className="space-y-3 mt-4">

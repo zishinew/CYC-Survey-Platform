@@ -17,6 +17,7 @@ interface QuestionDraft {
   is_required: boolean;
   is_conditional: boolean;
   section_description?: string;
+  description_alignment?: 'left' | 'center' | 'justify';
   attachments?: { url: string; name: string; type: string }[];
   reference_number?: number;
 }
@@ -66,6 +67,7 @@ export default function EditSurvey() {
             is_required: q.is_required,
             is_conditional: q.is_conditional || false,
             section_description: !isArr ? q.options.description : undefined,
+            description_alignment: (!isArr && q.options.description_alignment) ? q.options.description_alignment : undefined,
             attachments: !isArr ? q.options.attachments : undefined,
             reference_number: (!isArr && q.options.has_calculator) ? 1 : undefined
           };
@@ -97,6 +99,7 @@ export default function EditSurvey() {
       is_required: type === 'section_header' ? false : true,
       is_conditional: false,
       section_description: type === 'section_header' ? '' : undefined,
+      description_alignment: type === 'section_header' ? 'left' : undefined,
       attachments: type === 'section_header' ? [] : undefined,
       reference_number: type === 'rating_scale' ? undefined : undefined
     };
@@ -207,7 +210,7 @@ export default function EditSurvey() {
           } else if (q.type === 'rating_scale' && q.reference_number) {
             optionsPayload = { has_calculator: true };
           } else if (q.type === 'section_header') {
-            optionsPayload = { description: q.section_description || '', attachments: q.attachments || [] };
+            optionsPayload = { description: q.section_description || '', attachments: q.attachments || [], description_alignment: q.description_alignment || 'left' };
           }
           return {
             question_text: q.question_text,
@@ -425,7 +428,17 @@ export default function EditSurvey() {
                 {q.type === 'section_header' && (
                   <div className="space-y-3 ml-8">
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Section Description</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-600">Section Description</label>
+                    <div className="flex items-center space-x-2">
+                      <label className="text-xs text-gray-500">Alignment:</label>
+                      <select value={q.description_alignment || 'left'} onChange={(e) => updateQuestion(q.id, 'description_alignment', e.target.value)} className="text-xs border rounded p-1 focus:outline-none">
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="justify">Justify</option>
+                      </select>
+                    </div>
+                  </div>
                       <textarea rows={3} value={q.section_description || ''}
                         onChange={(e) => updateQuestion(q.id, 'section_description', e.target.value)}
                         className="w-full p-2 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-sm"
