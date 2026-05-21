@@ -3,37 +3,47 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Download } from 'lucide-react';
+import parse, { domToReact, Element, Text } from 'html-react-parser';
 
 
 const RichTextRenderer = ({ text, definitions }: { text: string; definitions?: { term: string; definition: string }[] }) => {
   if (!text) return null;
-  if (!definitions || definitions.length === 0) return <>{text}</>;
+  if (!definitions || definitions.length === 0) return <>{parse(text)}</>;
 
   const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const sortedDefs = [...definitions].sort((a, b) => b.term.length - a.term.length);
   const pattern = new RegExp(`\\b(${sortedDefs.map(d => escapeRegExp(d.term)).join('|')})\\b`, 'gi');
 
-  const parts = text.split(pattern);
+  const options = {
+    replace: (domNode: any) => {
+      if (domNode.type === 'text') {
+        const parts = domNode.data.split(pattern);
+        if (parts.length === 1) return undefined; // No match, let parser handle it
 
-  return (
-    <>
-      {parts.map((part, i) => {
-        const def = sortedDefs.find(d => d.term.toLowerCase() === part.toLowerCase());
-        if (def) {
-          return (
-            <div key={i} className="relative inline-block group cursor-help mx-1">
-              <span className="animated-wavy-underline">{part}</span>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl z-50 text-center font-normal">
-                {def.definition}
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-              </div>
-            </div>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
-  );
+        return (
+          <>
+            {parts.map((part: string, i: number) => {
+              const def = sortedDefs.find(d => d.term.toLowerCase() === part.toLowerCase());
+              if (def) {
+                return (
+                  <span key={i} className="relative inline-block group cursor-help mx-1">
+                    <span className="animated-wavy-underline">{part}</span>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl z-50 text-center font-normal tracking-normal leading-normal">
+                      {def.definition}
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></span>
+                    </span>
+                  </span>
+                );
+              }
+              return <span key={i}>{part}</span>;
+            })}
+          </>
+        );
+      }
+    }
+  };
+
+  return <>{parse(text, options)}</>;
 };
 
 export default function SurveyPage() {
@@ -622,12 +632,8 @@ export default function SurveyPage() {
             {/* QUESTION STEPS */}
             {!isEmailStep && currentQuestion && (
               <>
-            <div className="mb-6 sm:mb-8 text-center pt-4">
-              {(currentQuestion.question_text || '').split('\n\n').map((part: string, i: number, arr: string[]) => (
-                <div key={i} className={i < arr.length - 1 ? "text-sm sm:text-base text-gray-600 font-medium mb-6 leading-relaxed max-w-2xl mx-auto" : "text-xl sm:text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] leading-snug"}>
-                  <RichTextRenderer text={part} definitions={opts.definitions} />
-                </div>
-              ))}
+            <div className="mb-6 sm:mb-8 text-center pt-4 text-xl sm:text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] leading-snug [&_p]:mb-4 last:[&_p]:mb-0">
+              <RichTextRenderer text={(currentQuestion.question_text || '').replace(/\n\n/g, '<br/><br/>')} definitions={opts.definitions} />
             </div>
             
             <div className="w-full">
@@ -635,9 +641,9 @@ export default function SurveyPage() {
               {currentQuestion.type === 'section_header' && (
                 <div className="space-y-4">
                   {opts.description && (
-                    <p className={`text-base text-gray-600 leading-relaxed whitespace-pre-wrap text-${opts.description_alignment || 'left'}`}>
-                      <RichTextRenderer text={opts.description} definitions={opts.definitions} />
-                    </p>
+                    <div className={`text-base text-gray-600 leading-relaxed text-${opts.description_alignment || 'left'}`}>
+                      <RichTextRenderer text={opts.description.replace(/\n/g, '<br/>')} definitions={opts.definitions} />
+                    </div>
                   )}
                   {opts.attachments.length > 0 && (
                     <div className="space-y-3 mt-4">

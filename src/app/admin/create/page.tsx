@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIcon , Lock, Unlock } from 'lucide-react';
 import Link from 'next/link';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'section_header' | 'dropdown';
 
@@ -340,16 +341,20 @@ export default function CreateSurvey() {
                 </button>
               </div>
               
-              <div className="flex items-center space-x-4 mb-4 pr-8">
-                <span className="font-bold text-gray-400">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
-                <input type="text" required value={q.question_text}
-                  onChange={(e) => updateQuestion(q.id, 'question_text', e.target.value)}
-                  className="flex-grow p-2 border rounded font-medium focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
-                  placeholder={q.type === 'section_header' ? 'Section Title' : 'Enter your question'} />
+              <div className="flex items-start space-x-4 mb-4 pr-28">
+                <span className="font-bold text-gray-400 mt-8 w-6 text-right">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
+                <div className="flex-grow">
+                  <label className="block text-sm font-medium text-gray-600 capitalize mb-1">{q.type.replace('_', ' ')}</label>
+                  <RichTextEditor
+                    value={q.question_text}
+                    onChange={(val) => updateQuestion(q.id, 'question_text', val)}
+                    placeholder={q.type === 'section_header' ? 'Section Title' : 'Type your question here...'}
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600">
-                <span className="bg-gray-100 px-2 py-1 rounded capitalize">{q.type.replace('_', ' ')}</span>
+              <div className="flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 ml-10">
+                
                 {q.type !== 'section_header' && (
                   <>
                     <label className="flex items-center cursor-pointer">
@@ -403,7 +408,7 @@ export default function CreateSurvey() {
 
               {/* Section Header: Description + Attachments */}
               {q.type === 'section_header' && (
-                <div className="space-y-3 ml-8">
+                <div className="space-y-3 ml-10 pr-28">
                   <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-sm font-medium text-gray-600">Section Description</label>
@@ -416,10 +421,11 @@ export default function CreateSurvey() {
                       </select>
                     </div>
                   </div>
-                    <textarea rows={3} value={q.section_description || ''}
-                      onChange={(e) => updateQuestion(q.id, 'section_description', e.target.value)}
-                      className="w-full p-2 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-sm"
-                      placeholder="Provide context or instructions before the next set of questions..." />
+                    <RichTextEditor
+                        value={q.section_description || ''}
+                        onChange={(val) => updateQuestion(q.id, 'section_description', val)}
+                        placeholder="Provide context or instructions before the next set of questions..."
+                      />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">Attachments</label>
@@ -441,7 +447,7 @@ export default function CreateSurvey() {
 
               {/* Options for MC / Checkboxes */}
               {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
-                <div className="ml-8 space-y-2">
+                <div className="ml-10 pr-28 space-y-2">
                   {q.options.map((opt, oIdx) => (
                     <div key={oIdx} className="flex items-center space-x-2">
                       <div className={`w-4 h-4 border border-gray-400 ${(q.type === 'multiple_choice' || q.type === 'dropdown') ? 'rounded-full' : 'rounded'}`} />
