@@ -17,9 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} h-[100dvh] w-screen overflow-hidden flex flex-col`}>
+      <body className={`${inter.className} min-h-[100dvh] w-screen flex flex-col overflow-x-hidden`}>
         <Header />
-        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col overflow-hidden relative">
+        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col relative pb-10">
           {children}
         </main>
         {/* We can hide footer on survey page if it takes too much space, or make it very compact. Let's make it compact. */}
