@@ -4,6 +4,38 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Download } from 'lucide-react';
 
+
+const RichTextRenderer = ({ text, definitions }: { text: string; definitions?: { term: string; definition: string }[] }) => {
+  if (!text) return null;
+  if (!definitions || definitions.length === 0) return <>{text}</>;
+
+  const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const sortedDefs = [...definitions].sort((a, b) => b.term.length - a.term.length);
+  const pattern = new RegExp(`\\b(${sortedDefs.map(d => escapeRegExp(d.term)).join('|')})\\b`, 'gi');
+
+  const parts = text.split(pattern);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        const def = sortedDefs.find(d => d.term.toLowerCase() === part.toLowerCase());
+        if (def) {
+          return (
+            <div key={i} className="relative inline-block group cursor-help mx-1">
+              <span className="font-bold underline decoration-wavy decoration-teal-400">{part}</span>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl z-50 text-center font-normal">
+                {def.definition}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+};
+
 export default function SurveyPage() {
   const params = useParams();
   const router = useRouter();
@@ -238,8 +270,8 @@ export default function SurveyPage() {
 
   // Helper to get options config
   const getOpts = (q: any) => {
-    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left' };
-    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left' };
+    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left', definitions: [] };
+    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left', definitions: [] };
     return {
       choices: q.options.choices || [],
       has_other: q.options.has_other || false,
@@ -249,7 +281,8 @@ export default function SurveyPage() {
       attachments: q.options.attachments || [],
       randomize_options: q.options.randomize_options || false,
       locked_choices: q.options.locked_choices || [],
-      description_alignment: q.options.description_alignment || 'left'
+      description_alignment: q.options.description_alignment || 'left',
+      definitions: q.options.definitions || []
     };
   };
 
@@ -592,7 +625,7 @@ export default function SurveyPage() {
             <div className="mb-6 sm:mb-8 text-center pt-4">
               {(currentQuestion.question_text || '').split('\n\n').map((part: string, i: number, arr: string[]) => (
                 <div key={i} className={i < arr.length - 1 ? "text-sm sm:text-base text-gray-600 font-medium mb-6 leading-relaxed max-w-2xl mx-auto" : "text-xl sm:text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] leading-snug"}>
-                  {part}
+                  <RichTextRenderer text={part} definitions={opts.definitions} />
                 </div>
               ))}
             </div>
@@ -603,7 +636,7 @@ export default function SurveyPage() {
                 <div className="space-y-4">
                   {opts.description && (
                     <p className={`text-base text-gray-600 leading-relaxed whitespace-pre-wrap text-${opts.description_alignment || 'left'}`}>
-                      {opts.description}
+                      <RichTextRenderer text={opts.description} definitions={opts.definitions} />
                     </p>
                   )}
                   {opts.attachments.length > 0 && (

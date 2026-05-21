@@ -21,6 +21,7 @@ interface QuestionDraft {
   description_alignment?: 'left' | 'center' | 'justify';
   attachments?: { url: string; name: string; type: string }[];
   reference_number?: number;
+  definitions?: {term: string; definition: string}[];
 }
 
 export default function EditSurvey() {
@@ -166,6 +167,31 @@ export default function EditSurvey() {
       const arr = isArr ? [...q.options] : [...(q.options.choices || [])];
       arr.push(`Option ${arr.length + 1}`);
       return { ...q, options: isArr ? arr : { ...q.options, choices: arr } };
+    }));
+  };
+
+  const addDefinition = (qId: string) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      return { ...q, definitions: [...(q.definitions || []), { term: '', definition: '' }] };
+    }));
+  };
+
+  const updateDefinition = (qId: string, index: number, field: 'term' | 'definition', value: string) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      const newDefs = [...(q.definitions || [])];
+      newDefs[index] = { ...newDefs[index], [field]: value };
+      return { ...q, definitions: newDefs };
+    }));
+  };
+
+  const removeDefinition = (qId: string, index: number) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      const newDefs = [...(q.definitions || [])];
+      newDefs.splice(index, 1);
+      return { ...q, definitions: newDefs };
     }));
   };
 
@@ -512,6 +538,42 @@ export default function EditSurvey() {
                     </div>
                   </div>
                 )}
+
+              {/* Definitions Section */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Interactive Definitions</h4>
+                  <button type="button" onClick={() => addDefinition(q.id)} className="text-xs text-[var(--color-cyc-primary)] hover:underline">
+                    + Add Definition
+                  </button>
+                </div>
+                {q.definitions && q.definitions.length > 0 && (
+                  <div className="space-y-2">
+                    {q.definitions.map((def, dIdx) => (
+                      <div key={dIdx} className="flex items-start space-x-2">
+                        <input
+                          type="text"
+                          value={def.term}
+                          onChange={(e) => updateDefinition(q.id, dIdx, 'term', e.target.value)}
+                          placeholder="Term to bold"
+                          className="w-1/3 p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm"
+                        />
+                        <textarea
+                          value={def.definition}
+                          onChange={(e) => updateDefinition(q.id, dIdx, 'definition', e.target.value)}
+                          placeholder="Definition text..."
+                          className="flex-grow p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm resize-none"
+                          rows={2}
+                        />
+                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className="text-gray-400 hover:text-red-500 mt-1">
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               </div>
             );
           })}
