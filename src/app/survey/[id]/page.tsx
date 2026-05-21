@@ -120,16 +120,16 @@ export default function SurveyPage() {
             const attn1 = {
                 id: 'attn-fixed-1',
                 type: 'multiple_choice',
-                question_text: 'This is an attention check. Please select "Agree" to continue.',
+                question_text: 'When answering questions about housing and economic policy, it is important to read each statement carefully. To demonstrate that you are paying attention, please select the response option "4 (Agree)" for this specific question. \n\nHow strongly do you agree or disagree with the timeline of current federal infrastructure projects?',
                 is_required: true,
-                options: { choices: ["Disagree", "Agree", "Neutral"] }
+                options: { choices: ["1 (Strongly disagree)", "2 (Disagree)", "3 (Neutral)", "4 (Agree)", "5 (Strongly agree)"] }
             };
             const attn2 = {
                 id: 'attn-fixed-2',
                 type: 'multiple_choice',
-                question_text: 'To make sure you are still reading, please choose "Blue".',
+                question_text: 'To ensure our data quality standards are met for this study, please answer the following straightforward statement: \n\n"The government of Canada has officially dissolved the country\'s currency and banned the exchange of all goods and services."',
                 is_required: true,
-                options: { choices: ["Red", "Blue", "Green"] }
+                options: { choices: ["True", "False"] }
             };
             
             finalQuestions.splice(q2Index, 0, attn2);
@@ -394,8 +394,8 @@ export default function SurveyPage() {
       if (q.id.startsWith('attn-')) {
         const val = answers[q.id];
         let passed = false;
-        if (q.id === 'attn-fixed-1' && val === 'Agree') passed = true;
-        if (q.id === 'attn-fixed-2' && val === 'Blue') passed = true;
+        if (q.id === 'attn-fixed-1' && val === '4 (Agree)') passed = true;
+        if (q.id === 'attn-fixed-2' && val === 'False') passed = true;
         if (q.id === 'attn-inact-1' && val === 'Yes') passed = true;
         
         if (!passed && sessionId) {
