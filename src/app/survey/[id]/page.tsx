@@ -140,8 +140,8 @@ export default function SurveyPage() {
 
   // Helper to get options config
   const getOpts = (q: any) => {
-    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false };
-    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false };
+    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, description_alignment: 'left' };
+    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, description_alignment: 'left' };
     return {
       choices: q.options.choices || [],
       has_other: q.options.has_other || false,
@@ -149,7 +149,8 @@ export default function SurveyPage() {
       has_calculator: q.options.has_calculator || q.options.reference_number ? true : false,
       description: q.options.description || '',
       attachments: q.options.attachments || [],
-      randomize_options: q.options.randomize_options || false
+      randomize_options: q.options.randomize_options || false,
+      description_alignment: q.options.description_alignment || 'left'
     };
   };
 
