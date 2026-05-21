@@ -546,9 +546,13 @@ export default function SurveyPage() {
             {/* QUESTION STEPS */}
             {!isEmailStep && currentQuestion && (
               <>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8 text-[var(--color-cyc-secondary)] text-center leading-snug pt-4">
-              {currentQuestion.question_text}
-            </h2>
+            <div className="mb-6 sm:mb-8 text-center pt-4">
+              {(currentQuestion.question_text || '').split('\n\n').map((part: string, i: number, arr: string[]) => (
+                <div key={i} className={i < arr.length - 1 ? "text-sm sm:text-base text-gray-600 font-medium mb-6 leading-relaxed max-w-2xl mx-auto" : "text-xl sm:text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] leading-snug"}>
+                  {part}
+                </div>
+              ))}
+            </div>
             
             <div className="w-full">
               {/* SECTION HEADER */}
