@@ -86,9 +86,14 @@ export default function AiInsightsTab({ surveyId, totalRespondents }: { surveyId
 
       {data && !loading && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center text-xs text-gray-400">
-            <span>Based on {data.meta?.total_respondents || totalRespondents} respondents</span>
-            <span>Generated {data.meta?.generated_at ? new Date(data.meta.generated_at).toLocaleString() : 'just now'}</span>
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+            <div className="text-xs text-gray-400">
+              <span className="mr-4">Based on {data.meta?.total_respondents || totalRespondents} respondents</span>
+              <span>Generated {data.meta?.generated_at ? new Date(data.meta.generated_at).toLocaleString() : 'just now'}</span>
+            </div>
+            <button onClick={() => triggerAiModule(currentMod, true)} className="inline-flex items-center px-3 py-1.5 bg-[var(--color-cyc-primary)] text-white hover:bg-teal-700 rounded text-xs font-semibold transition-colors shadow-sm">
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reanalyze
+            </button>
           </div>
 
           {/* Render different UI based on the active sub-tab */}
@@ -379,12 +384,7 @@ export default function AiInsightsTab({ surveyId, totalRespondents }: { surveyId
             </>
           )}
 
-          {/* Regenerate Button */}
-          <div className="text-center pt-2">
-            <button onClick={() => triggerAiModule(currentMod, true)} className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
-              <RefreshCw className="w-4 h-4 mr-2" /> Regenerate Analysis
-            </button>
-          </div>
+
         </div>
       )}
     </div>
