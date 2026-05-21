@@ -13,7 +13,7 @@ export default function SurveyPage() {
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0 = email, 1+ = questions
-  const [email, setEmail] = useState(searchParams.get('email') || '');
+  const [email, setEmail] = useState('');
   const [profileData, setProfileData] = useState<Record<string, any>>({});
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -22,6 +22,17 @@ export default function SurveyPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Initialize email from URL or global cache
+  useEffect(() => {
+    const urlEmail = searchParams.get('email');
+    if (urlEmail) {
+      setEmail(urlEmail);
+    } else {
+      const globalEmail = localStorage.getItem('cyc_global_email');
+      if (globalEmail) setEmail(globalEmail);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetch(`/api/surveys/${params.id}`)
@@ -246,6 +257,9 @@ export default function SurveyPage() {
           }
           return;
         }
+
+        // Save to global email memory
+        localStorage.setItem('cyc_global_email', email);
 
         // 2. Fetch Profile Data
         let fetchedProfileData = profileData;
