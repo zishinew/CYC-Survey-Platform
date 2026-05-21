@@ -18,6 +18,7 @@ interface QuestionDraft {
   is_conditional: boolean;
   section_description?: string;
   attachments?: { url: string; name: string; type: string }[];
+  reference_number?: number;
 }
 
 export default function EditSurvey() {
@@ -65,7 +66,8 @@ export default function EditSurvey() {
             is_required: q.is_required,
             is_conditional: q.is_conditional || false,
             section_description: !isArr ? q.options.description : undefined,
-            attachments: !isArr ? q.options.attachments : undefined
+            attachments: !isArr ? q.options.attachments : undefined,
+            reference_number: (!isArr && q.options.has_calculator) ? 1 : undefined
           };
         });
         setQuestions(loadedQuestions);
@@ -95,7 +97,8 @@ export default function EditSurvey() {
       is_required: type === 'section_header' ? false : true,
       is_conditional: false,
       section_description: type === 'section_header' ? '' : undefined,
-      attachments: type === 'section_header' ? [] : undefined
+      attachments: type === 'section_header' ? [] : undefined,
+      reference_number: type === 'rating_scale' ? undefined : undefined
     };
     setQuestions([...questions, newQ]);
   };
@@ -378,6 +381,17 @@ export default function EditSurvey() {
                         onChange={(e) => updateQuestion(q.id, 'randomize_options', e.target.checked)}
                         className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
                       Randomize option order
+                    </label>
+                  </div>
+                )}
+
+                {q.type === 'rating_scale' && (
+                  <div className="flex items-center space-x-6 mb-4 text-sm text-gray-600 pl-8">
+                    <label className="flex items-center cursor-pointer">
+                      <input type="checkbox" checked={q.reference_number === 1}
+                        onChange={(e) => updateQuestion(q.id, 'reference_number', e.target.checked ? 1 : undefined)}
+                        className="mr-2 h-4 w-4 text-[var(--color-cyc-primary)]" />
+                      Enable reference number calculator
                     </label>
                   </div>
                 )}
