@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIcon , Lock, Unlock } from 'lucide-react';
 import Link from 'next/link';
 
 type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'section_header' | 'dropdown';
@@ -16,6 +16,7 @@ interface QuestionDraft {
   max_selections?: number;
   has_other?: boolean;
   randomize_options?: boolean;
+  locked_choices?: string[];
   reference_number?: number;
   section_description?: string;
   description_alignment?: 'left' | 'center' | 'justify';
@@ -89,6 +90,7 @@ export default function CreateSurvey() {
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
       randomize_options: false,
+      locked_choices: [],
       reference_number: type === 'rating_scale' ? undefined : undefined,
       section_description: type === 'section_header' ? '' : undefined,
       description_alignment: type === 'section_header' ? 'left' : undefined,
@@ -114,6 +116,17 @@ export default function CreateSurvey() {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
       return { ...q, options: [...q.options, `Option ${q.options.length + 1}`] };
+    }));
+  };
+
+  const toggleLockChoice = (qId: string, optText: string) => {
+    setQuestions(questions.map(q => {
+      if (q.id === qId) {
+        const locked = q.locked_choices || [];
+        const newLocked = locked.includes(optText) ? locked.filter(c => c !== optText) : [...locked, optText];
+        return { ...q, locked_choices: newLocked };
+      }
+      return q;
     }));
   };
 
@@ -169,9 +182,9 @@ export default function CreateSurvey() {
         questions: questions.map((q, idx) => {
           let optionsPayload: any = null;
           if (q.type === 'multiple_choice' || q.type === 'dropdown') {
-            optionsPayload = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
+            optionsPayload = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false, locked_choices: q.locked_choices || [] };
           } else if (q.type === 'checkboxes') {
-            optionsPayload = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
+            optionsPayload = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false, locked_choices: q.locked_choices || [] };
           } else if (q.type === 'rating_scale' && q.reference_number) {
             optionsPayload = { has_calculator: true };
           } else if (q.type === 'section_header') {
@@ -405,6 +418,9 @@ export default function CreateSurvey() {
                       <input type="text" value={opt} required
                         onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                         className="flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent" />
+                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500'}`} title="Lock Option Position">
+                        {(q.locked_choices || []).includes(opt) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      </button>
                       {q.options.length > 1 && (
                         <button type="button" onClick={() => removeOption(q.id, oIdx)} className="text-gray-400 hover:text-red-500">&times;</button>
                       )}

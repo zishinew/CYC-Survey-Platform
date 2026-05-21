@@ -60,6 +60,7 @@ class AnswerCreate(BaseModel):
     answer_text: Optional[str] = None
     answer_numeric: Optional[int] = None
     answer_options: Optional[Any] = None
+    time_spent: Optional[int] = 0
 
 class ResponseSubmission(BaseModel):
     survey_id: str
@@ -331,6 +332,7 @@ class AnswerUpsert(BaseModel):
     answer_text: Optional[str] = None
     answer_numeric: Optional[int] = None
     answer_options: Optional[Any] = None
+    time_spent: Optional[int] = 0
 
 class CheckStatusRequest(BaseModel):
     email: str
@@ -419,7 +421,8 @@ async def upsert_answer(session_id: str, body: AnswerUpsert):
             supabase.table("answers").update({
                 "answer_text": body.answer_text,
                 "answer_numeric": body.answer_numeric,
-                "answer_options": body.answer_options
+                "answer_options": body.answer_options,
+                "time_spent": body.time_spent
             }).eq("id", existing.data[0]["id"]).execute()
         else:
             # Insert new
@@ -428,7 +431,8 @@ async def upsert_answer(session_id: str, body: AnswerUpsert):
                 "question_id": body.question_id,
                 "answer_text": body.answer_text,
                 "answer_numeric": body.answer_numeric,
-                "answer_options": body.answer_options
+                "answer_options": body.answer_options,
+                "time_spent": body.time_spent
             }).execute()
 
         return {"status": "saved"}
@@ -510,7 +514,8 @@ async def submit_response(survey_id: str, submission: ResponseSubmission):
                 "question_id": answer.question_id,
                 "answer_text": answer.answer_text,
                 "answer_numeric": answer.answer_numeric,
-                "answer_options": answer.answer_options
+                "answer_options": answer.answer_options,
+                "time_spent": answer.time_spent
             })
             
         if answers_to_insert:

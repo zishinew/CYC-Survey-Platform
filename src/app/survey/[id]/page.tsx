@@ -25,6 +25,8 @@ export default function SurveyPage() {
 
   const [inactivityTriggered, setInactivityTriggered] = useState(false);
   const [inactivityChecksShown, setInactivityChecksShown] = useState(0);
+  const [questionEnterTime, setQuestionEnterTime] = useState<number>(Date.now());
+  const [timeSpentAccumulator, setTimeSpentAccumulator] = useState<Record<string, number>>({});
 
 
   // Initialize email from URL or global cache
@@ -164,12 +166,35 @@ export default function SurveyPage() {
 
   // Auto-save the active question's answer to the database in the background on change
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentStep]);
+
+  // Auto-advance for simple section headers
+  useEffect(() => {
+    const isEmailStep = currentStep === 0;
+    const currentQ = survey && !isEmailStep ? survey.questions[currentStep - 1] : null;
+    if (!isEmailStep && currentQ?.type === 'section_header') {
+      const opts = getOpts(currentQ);
+      if (!opts.description && (!opts.attachments || opts.attachments.length === 0)) {
+        const timer = setTimeout(() => {
+          handleNext();
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentStep, survey]);
+
+  useEffect(() => {
     if (survey && sessionId && currentStep > 0) {
       const currentQuestion = survey.questions[currentStep - 1];
       if (currentQuestion && currentQuestion.type !== 'section_header' && !currentQuestion.id.startsWith('attn-')) {
         const val = answers[currentQuestion.id];
         if (val !== undefined) {
-          const body: any = { question_id: currentQuestion.id };
+          const currentSessionTime = Date.now() - questionEnterTime;
+          const body: any = { 
+              question_id: currentQuestion.id,
+              time_spent: Math.floor((timeSpentAccumulator[currentQuestion.id] || 0) + currentSessionTime)
+          };
           if (currentQuestion.type === 'multiple_choice' || currentQuestion.type === 'short_answer') {
             body.answer_text = val;
           } else if (currentQuestion.type === 'rating_scale' || currentQuestion.type === 'likert_scale') {
@@ -213,8 +238,8 @@ export default function SurveyPage() {
 
   // Helper to get options config
   const getOpts = (q: any) => {
-    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, description_alignment: 'left' };
-    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, description_alignment: 'left' };
+    if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left' };
+    if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left' };
     return {
       choices: q.options.choices || [],
       has_other: q.options.has_other || false,
@@ -223,6 +248,7 @@ export default function SurveyPage() {
       description: q.options.description || '',
       attachments: q.options.attachments || [],
       randomize_options: q.options.randomize_options || false,
+      locked_choices: q.options.locked_choices || [],
       description_alignment: q.options.description_alignment || 'left'
     };
   };
@@ -233,7 +259,10 @@ export default function SurveyPage() {
   const displayChoices = useMemo(() => {
     if (!opts.choices || opts.choices.length === 0) return [];
     if (opts.randomize_options) {
-      return shuffleArray(opts.choices);
+      const locked = opts.locked_choices || [];
+      const nonLocked = opts.choices.filter((c: string) => !locked.includes(c));
+      const shuffledNonLocked = shuffleArray(nonLocked);
+      return opts.choices.map((c: string) => locked.includes(c) ? c : shuffledNonLocked.shift()!);
     }
     return opts.choices;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,7 +307,11 @@ export default function SurveyPage() {
     const val = answers[question.id];
     if (val === undefined) return;
 
-    const body: any = { question_id: question.id };
+    const currentSessionTime = Date.now() - questionEnterTime;
+    const body: any = { 
+        question_id: question.id,
+        time_spent: Math.floor((timeSpentAccumulator[question.id] || 0) + currentSessionTime)
+    };
     if (question.type === 'multiple_choice' || question.type === 'short_answer') {
       body.answer_text = val;
     } else if (question.type === 'rating_scale' || question.type === 'likert_scale') {
@@ -446,6 +479,11 @@ export default function SurveyPage() {
         body: JSON.stringify({ current_step: nextStep })
       }).catch(() => {});
       
+      if (currentStep > 0 && currentStep <= survey.questions.length) {
+          const qId = survey.questions[currentStep - 1].id;
+          setTimeSpentAccumulator((prev: any) => ({ ...prev, [qId]: (prev[qId] || 0) + (Date.now() - questionEnterTime) }));
+      }
+      setQuestionEnterTime(Date.now());
       if (nextStep <= survey.questions.length) {
         setCurrentStep(nextStep);
       } else {
@@ -456,6 +494,11 @@ export default function SurveyPage() {
 
   const handleBack = () => {
     if (currentStep > 0) {
+      if (survey && survey.questions[currentStep - 1]) {
+          const qId = survey.questions[currentStep - 1].id;
+          setTimeSpentAccumulator((prev: any) => ({ ...prev, [qId]: (prev[qId] || 0) + (Date.now() - questionEnterTime) }));
+      }
+      setQuestionEnterTime(Date.now());
       setCurrentStep(Math.max(0, getNextVisibleStep(currentStep - 1, false)));
     }
   };
@@ -523,7 +566,7 @@ export default function SurveyPage() {
       <div className="flex-1 flex flex-col card p-4 sm:p-8 shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] relative h-auto min-h-[60vh]">
         <AnimatePresence mode="wait">
           <motion.div key={currentStep} initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
-            className="flex-1 flex flex-col justify-start max-w-2xl mx-auto w-full pb-4 pt-4 sm:pt-8">
+            className={`flex-1 flex flex-col max-w-2xl mx-auto w-full pb-4 pt-4 sm:pt-8 ${currentQuestion?.type === "section_header" ? "justify-center my-auto" : "justify-start"}`}>
             
             {/* EMAIL STEP */}
             {isEmailStep && (
@@ -770,22 +813,23 @@ export default function SurveyPage() {
             </div>
             </>
             )}
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="flex-shrink-0 flex justify-between items-center mt-6 pt-4 border-t border-gray-100 bg-white">
-          <button onClick={handleBack} disabled={currentStep === 0}
-            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-medium transition-all ${currentStep === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
-            Back
-          </button>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleNext} disabled={submitting}
-            className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl flex items-center text-base sm:text-lg font-bold shadow-lg shadow-yellow-200 hover:shadow-xl hover:-translate-y-0.5 transition-all">
-            {submitting ? 'Submitting...' : (currentStep === totalSteps - 1 ? 'Finish Survey' : (isEmailStep ? 'Next' : (currentQuestion?.type === 'section_header' ? 'Continue' : 'Next')))}
-            {!submitting && currentStep !== totalSteps - 1 && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
-            {!submitting && currentStep === totalSteps - 1 && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
-          </motion.button>
+              {!(currentQuestion?.type === 'section_header' && !opts.description && (!opts.attachments || opts.attachments.length === 0)) && (
+                <div className="flex-shrink-0 flex justify-between items-center mt-auto pt-6 border-t border-gray-100 bg-white">
+                  <button onClick={handleBack} disabled={currentStep === 0}
+                    className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-medium transition-all ${currentStep === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+                    Back
+                  </button>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleNext} disabled={submitting}
+                    className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl flex items-center text-base sm:text-lg font-bold shadow-lg shadow-yellow-200 hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                    {submitting ? 'Submitting...' : (currentStep === totalSteps - 1 ? 'Finish Survey' : (isEmailStep ? 'Next' : (currentQuestion?.type === 'section_header' ? 'Continue' : 'Next')))}
+                    {!submitting && currentStep !== totalSteps - 1 && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
+                    {!submitting && currentStep === totalSteps - 1 && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
+                  </motion.button>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

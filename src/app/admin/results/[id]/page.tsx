@@ -52,6 +52,7 @@ interface Answer {
   answer_text: string | null;
   answer_numeric: number | null;
   answer_options: string[] | null;
+  time_spent?: number;
 }
 
 interface Response {
@@ -78,6 +79,7 @@ export default function ResultsPage() {
   const [tab, setTab] = useState<'summary' | 'individual'>('summary');
   const [currentResponse, setCurrentResponse] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState<Record<string, boolean>>({});
+  const [filterFailed, setFilterFailed] = useState(false);
 
   const toggleAdvanced = (qId: string) => setShowAdvanced(prev => ({ ...prev, [qId]: !prev[qId] }));
 
@@ -334,7 +336,8 @@ export default function ResultsPage() {
   }
 
   // --- INDIVIDUAL VIEW ---
-  const currentResp = responses[currentResponse];
+  const displayResponses = filterFailed ? responses.filter((r: Response) => (r.attention_check_failures || 0) > 0) : responses;
+  const currentResp = displayResponses[currentResponse];
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -428,7 +431,13 @@ export default function ResultsPage() {
       {/* INDIVIDUAL TAB */}
       {tab === 'individual' && (
         <div>
-          {responses.length === 0 ? (
+          <div className="flex justify-end mb-4">
+            <label className="flex items-center space-x-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 transition">
+              <input type="checkbox" checked={filterFailed} onChange={(e) => { setFilterFailed(e.target.checked); setCurrentResponse(0); }} className="rounded text-red-500 focus:ring-red-500 w-4 h-4" />
+              <span className="text-sm font-semibold text-gray-700">Show Only Failed Attention Checks</span>
+            </label>
+          </div>
+          {displayResponses.length === 0 ? (
             <p className="text-center text-gray-500 py-12">No responses yet.</p>
           ) : (
             <>
@@ -444,7 +453,7 @@ export default function ResultsPage() {
                 <div className="text-center">
                   <span className="font-bold text-[var(--color-cyc-secondary)]">Response {currentResponse + 1}</span>
                   <span className="text-gray-400 mx-2">of</span>
-                  <span className="font-bold text-[var(--color-cyc-secondary)]">{responses.length}</span>
+                  <span className="font-bold text-[var(--color-cyc-secondary)]">{displayResponses.length}</span>
                   {currentResp?.attention_check_failures && currentResp.attention_check_failures > 0 ? (
                     <div className="mt-2 inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
                       <AlertTriangle className="w-3 h-3 mr-1" />
@@ -466,8 +475,8 @@ export default function ResultsPage() {
                     <Trash2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setCurrentResponse(Math.min(responses.length - 1, currentResponse + 1))}
-                    disabled={currentResponse === responses.length - 1}
+                    onClick={() => setCurrentResponse(Math.min(displayResponses.length - 1, currentResponse + 1))}
+                    disabled={currentResponse === displayResponses.length - 1}
                     className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -501,7 +510,14 @@ export default function ResultsPage() {
                       <h4 className="text-sm font-bold text-[var(--color-cyc-secondary)] mb-1">
                         {idx + 1}. {q.question_text}
                       </h4>
-                      <p className="text-base text-gray-700">{displayValue}</p>
+                      <p className="text-base text-gray-700">
+                        {displayValue}
+                        {answer?.time_spent !== undefined && (
+                          <span className="text-gray-400 text-xs ml-2 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                            {(answer.time_spent / 1000).toFixed(1)}s
+                          </span>
+                        )}
+                      </p>
                     </div>
                   );
                 })}
