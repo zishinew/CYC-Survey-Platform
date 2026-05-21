@@ -142,7 +142,7 @@ export default function ResultsPage() {
       return <p className="text-sm text-gray-400 italic">No responses yet.</p>;
     }
 
-    if (q.type === 'multiple_choice') {
+    if (q.type === 'multiple_choice' || q.type === 'dropdown') {
       const opts: string[] = Array.isArray(q.options) ? q.options : (q.options?.choices || []);
       const counts: Record<string, number> = {};
       opts.forEach((o: string) => counts[o] = 0);
@@ -463,7 +463,7 @@ export default function ResultsPage() {
                   let displayValue: string = '—';
 
                   if (answer) {
-                    if (q.type === 'multiple_choice') {
+                    if (q.type === 'multiple_choice' || q.type === 'dropdown') {
                       displayValue = answer.answer_text || '—';
                     } else if (q.type === 'short_answer') {
                       displayValue = answer.answer_text || '—';

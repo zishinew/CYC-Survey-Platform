@@ -314,6 +314,18 @@ export default function SurveyPage() {
       }
     }
 
+    // Validate required questions before moving
+    if (currentStep > 0 && currentStep <= survey.questions.length) {
+      const q = survey.questions[currentStep - 1];
+      if (q.is_required && q.type !== 'section_header') {
+        const val = answers[q.id];
+        if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+          alert('This question is required. Please provide an answer.');
+          return;
+        }
+      }
+    }
+
     // Save current answer before moving
     if (sessionId) {
       await saveCurrentAnswer(sessionId, currentStep - 1);
@@ -376,7 +388,7 @@ export default function SurveyPage() {
       <div className="flex-1 flex flex-col justify-center items-center px-4 w-full max-w-3xl mx-auto text-center h-full">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="w-full">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] mb-6 leading-tight">{survey.title}</h1>
-          <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed text-left">
             {survey.description || "Share your voice and help empower Canadian youth."}
           </p>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setHasStarted(true)}
@@ -391,7 +403,7 @@ export default function SurveyPage() {
 
   // Survey Form
   return (
-    <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-4 sm:py-6 relative overflow-hidden h-full">
+    <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-4 sm:py-6 relative min-h-full pb-20">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex-shrink-0 mb-6 text-center">
         <div className="w-full bg-gray-200 rounded-full h-2 max-w-2xl mx-auto overflow-hidden">
           <motion.div className="bg-[var(--color-cyc-primary)] h-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
@@ -401,10 +413,10 @@ export default function SurveyPage() {
         </p>
       </motion.div>
 
-      <div className="flex-1 flex flex-col card p-4 sm:p-8 shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] relative overflow-hidden h-full">
+      <div className="flex-1 flex flex-col card p-4 sm:p-8 shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] relative h-auto min-h-[60vh]">
         <AnimatePresence mode="wait">
           <motion.div key={currentStep} initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
-            className="flex-1 flex flex-col justify-start max-w-2xl mx-auto w-full overflow-y-auto no-scrollbar pb-4 pt-4 sm:pt-8">
+            className="flex-1 flex flex-col justify-start max-w-2xl mx-auto w-full pb-4 pt-4 sm:pt-8">
             
             {/* EMAIL STEP */}
             {isEmailStep && (
@@ -436,7 +448,7 @@ export default function SurveyPage() {
               {currentQuestion.type === 'section_header' && (
                 <div className="space-y-4">
                   {opts.description && (
-                    <p className="text-base text-gray-600 leading-relaxed whitespace-pre-wrap">{opts.description}</p>
+                    <p className="text-base text-gray-600 leading-relaxed whitespace-pre-wrap text-left">{opts.description}</p>
                   )}
                   {opts.attachments.length > 0 && (
                     <div className="space-y-3 mt-4">
@@ -456,6 +468,22 @@ export default function SurveyPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* DROPDOWN */}
+              {currentQuestion.type === 'dropdown' && (
+                <div className="w-full">
+                  <select
+                    value={answers[currentQuestion.id] || ''}
+                    onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})}
+                    className="w-full p-3 sm:p-4 border-2 border-gray-200 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-teal-50 focus:outline-none transition-all text-base sm:text-lg bg-white cursor-pointer"
+                  >
+                    <option value="" disabled>Select an option...</option>
+                    {displayChoices.map((opt: string) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 

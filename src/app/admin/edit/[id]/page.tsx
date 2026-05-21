@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { PlusCircle, Trash2, ArrowLeft, Save } from 'lucide-react';
+import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 
-type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale';
+type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'dropdown' | 'section_header';
 
 interface QuestionDraft {
   id: string;
@@ -16,6 +16,8 @@ interface QuestionDraft {
   randomize_options?: boolean;
   is_required: boolean;
   is_conditional: boolean;
+  section_description?: string;
+  attachments?: { url: string; name: string; type: string }[];
 }
 
 export default function EditSurvey() {
@@ -61,7 +63,9 @@ export default function EditSurvey() {
             has_other: !isArr ? q.options.has_other : false,
             randomize_options: !isArr ? q.options.randomize_options : false,
             is_required: q.is_required,
-            is_conditional: q.is_conditional || false
+            is_conditional: q.is_conditional || false,
+            section_description: !isArr ? q.options.description : undefined,
+            attachments: !isArr ? q.options.attachments : undefined
           };
         });
         setQuestions(loadedQuestions);
@@ -84,12 +88,14 @@ export default function EditSurvey() {
       id: Math.random().toString(36).substr(2, 9),
       question_text: '',
       type,
-      options: type === 'multiple_choice' || type === 'checkboxes' ? ['Option 1'] : [],
+      options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? ['Option 1'] : [],
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
       randomize_options: false,
-      is_required: true,
-      is_conditional: false
+      is_required: type === 'section_header' ? false : true,
+      is_conditional: false,
+      section_description: type === 'section_header' ? '' : undefined,
+      attachments: type === 'section_header' ? [] : undefined
     };
     setQuestions([...questions, newQ]);
   };
@@ -105,6 +111,40 @@ export default function EditSurvey() {
       const arr = isArr ? [...q.options] : [...(q.options.choices || [])];
       arr[index] = value;
       return { ...q, options: isArr ? arr : { ...q.options, choices: arr } };
+    }));
+  };
+
+  const uploadFile = async (file: File): Promise<{ url: string; filename: string } | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      return await res.json();
+    } catch {
+      alert('File upload failed. Please try again.');
+      return null;
+    }
+  };
+
+  const handleAttachmentUpload = async (qId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await uploadFile(file);
+    if (result) {
+      setQuestions(questions.map(q => {
+        if (q.id !== qId) return q;
+        return { ...q, attachments: [...(q.attachments || []), { url: result.url, name: result.filename, type: file.type }] };
+      }));
+    }
+  };
+
+  const removeAttachment = (qId: string, index: number) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      const newAttachments = [...(q.attachments || [])];
+      newAttachments.splice(index, 1);
+      return { ...q, attachments: newAttachments };
     }));
   };
 
@@ -156,8 +196,16 @@ export default function EditSurvey() {
         estimated_minutes: estimatedMinutes,
         is_active: isActive,
         questions: questions.map((q, idx) => {
-          const optionsPayload = q.type === 'multiple_choice' ? { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : 
-                                 q.type === 'checkboxes' ? { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false } : null;
+          let optionsPayload: any = null;
+          if (q.type === 'multiple_choice' || q.type === 'dropdown') {
+            optionsPayload = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
+          } else if (q.type === 'checkboxes') {
+            optionsPayload = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
+          } else if (q.type === 'rating_scale' && q.reference_number) {
+            optionsPayload = { has_calculator: true };
+          } else if (q.type === 'section_header') {
+            optionsPayload = { description: q.section_description || '', attachments: q.attachments || [] };
+          }
           return {
             question_text: q.question_text,
             type: q.type,
@@ -317,7 +365,7 @@ export default function EditSurvey() {
                   )}
                 </div>
 
-                {(q.type === 'multiple_choice' || q.type === 'checkboxes') && (
+                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
                   <div className="flex items-center space-x-6 mb-4 text-sm text-gray-600 pl-8">
                     <label className="flex items-center cursor-pointer">
                       <input type="checkbox" checked={q.has_other || false}
@@ -338,7 +386,7 @@ export default function EditSurvey() {
                   <div className="ml-8 space-y-2">
                     {optionsArray.map((opt: string, oIdx: number) => (
                       <div key={oIdx} className="flex items-center space-x-2">
-                        <div className={`w-4 h-4 border border-gray-400 ${q.type === 'multiple_choice' ? 'rounded-full' : 'rounded'}`} />
+                        <div className={`w-4 h-4 border border-gray-400 ${(q.type === 'multiple_choice' || q.type === 'dropdown') ? 'rounded-full' : 'rounded'}`} />
                         <input
                           type="text"
                           value={opt}
@@ -358,6 +406,34 @@ export default function EditSurvey() {
                     </button>
                   </div>
                 )}
+
+                {/* Section Header: Description + Attachments */}
+                {q.type === 'section_header' && (
+                  <div className="space-y-3 ml-8">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Section Description</label>
+                      <textarea rows={3} value={q.section_description || ''}
+                        onChange={(e) => updateQuestion(q.id, 'section_description', e.target.value)}
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-sm"
+                        placeholder="Provide context or instructions before the next set of questions..." />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Attachments</label>
+                      {(q.attachments || []).map((att, aIdx) => (
+                        <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white p-2 rounded border text-sm">
+                          {att.type.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-green-500" /> : <FileText className="w-4 h-4 text-blue-500" />}
+                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex-grow truncate">{att.name}</a>
+                          <button type="button" onClick={() => removeAttachment(q.id, aIdx)} className="text-red-400 hover:text-red-600">&times;</button>
+                        </div>
+                      ))}
+                      <label className="inline-flex items-center px-3 py-1.5 bg-white border border-dashed border-gray-300 rounded cursor-pointer hover:border-[var(--color-cyc-primary)] transition-colors text-sm">
+                        <Upload className="w-3.5 h-3.5 mr-1.5 text-gray-500" />
+                        <span className="text-gray-600">Add File (PDF, PNG, JPEG)</span>
+                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,image/*,application/pdf" onChange={(e) => handleAttachmentUpload(q.id, e)} className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -365,11 +441,17 @@ export default function EditSurvey() {
           <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
             <p className="text-gray-500 mb-4">Add a new question to this survey</p>
             <div className="flex flex-wrap justify-center gap-3">
+              <button type="button" onClick={() => addQuestion('section_header')} className="px-4 py-2 bg-yellow-50 border border-yellow-300 rounded shadow-sm hover:border-[var(--color-cyc-accent)] transition-colors text-sm font-medium text-yellow-700">
+                § Section Header
+              </button>
               <button type="button" onClick={() => addQuestion('multiple_choice')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
                 Multiple Choice
               </button>
               <button type="button" onClick={() => addQuestion('checkboxes')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
                 Checkboxes
+              </button>
+              <button type="button" onClick={() => addQuestion('dropdown')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+                Dropdown
               </button>
               <button type="button" onClick={() => addQuestion('rating_scale')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
                 Percentage Slider (0-100)

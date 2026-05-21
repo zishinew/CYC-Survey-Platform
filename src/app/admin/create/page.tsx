@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 
-type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'section_header';
+type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'section_header' | 'dropdown';
 
 interface QuestionDraft {
   id: string;
@@ -81,7 +81,7 @@ export default function CreateSurvey() {
       id: Math.random().toString(36).substr(2, 9),
       question_text: '',
       type,
-      options: type === 'multiple_choice' || type === 'checkboxes' ? ['Option 1'] : [],
+      options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? ['Option 1'] : [],
       is_required: type === 'section_header' ? false : true,
       is_conditional: false,
       max_selections: type === 'checkboxes' ? 3 : undefined,
@@ -150,7 +150,7 @@ export default function CreateSurvey() {
         thumbnail_url: thumbnailUrl || null,
         questions: questions.map((q, idx) => {
           let optionsPayload: any = null;
-          if (q.type === 'multiple_choice') {
+          if (q.type === 'multiple_choice' || q.type === 'dropdown') {
             optionsPayload = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
           } else if (q.type === 'checkboxes') {
             optionsPayload = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false };
@@ -294,7 +294,7 @@ export default function CreateSurvey() {
                       className="w-16 p-1 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-center" />
                   </label>
                 )}
-                {(q.type === 'multiple_choice' || q.type === 'checkboxes') && (
+                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
                   <>
                     <label className="flex items-center cursor-pointer">
                       <input type="checkbox" checked={q.has_other || false}
@@ -349,11 +349,11 @@ export default function CreateSurvey() {
               )}
 
               {/* Options for MC / Checkboxes */}
-              {(q.type === 'multiple_choice' || q.type === 'checkboxes') && (
+              {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
                 <div className="ml-8 space-y-2">
                   {q.options.map((opt, oIdx) => (
                     <div key={oIdx} className="flex items-center space-x-2">
-                      <div className={`w-4 h-4 border border-gray-400 ${q.type === 'multiple_choice' ? 'rounded-full' : 'rounded'}`} />
+                      <div className={`w-4 h-4 border border-gray-400 ${(q.type === 'multiple_choice' || q.type === 'dropdown') ? 'rounded-full' : 'rounded'}`} />
                       <input type="text" value={opt} required
                         onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                         className="flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent" />
@@ -364,7 +364,7 @@ export default function CreateSurvey() {
                   ))}
                   {q.has_other && (
                     <div className="flex items-center space-x-2 opacity-60">
-                      <div className={`w-4 h-4 border border-gray-400 ${q.type === 'multiple_choice' ? 'rounded-full' : 'rounded'}`} />
+                      <div className={`w-4 h-4 border border-gray-400 ${(q.type === 'multiple_choice' || q.type === 'dropdown') ? 'rounded-full' : 'rounded'}`} />
                       <span className="text-sm text-gray-500 italic">Other: ____</span>
                     </div>
                   )}
@@ -388,6 +388,9 @@ export default function CreateSurvey() {
               </button>
               <button type="button" onClick={() => addQuestion('checkboxes')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
                 Checkboxes
+              </button>
+              <button type="button" onClick={() => addQuestion('dropdown')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+                Dropdown
               </button>
               <button type="button" onClick={() => addQuestion('rating_scale')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
                 Percentage Slider (0-100)
