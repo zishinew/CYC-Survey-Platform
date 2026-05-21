@@ -446,6 +446,38 @@ async def update_step(session_id: str, body: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/sessions/{session_id}/attention-failure")
+async def report_attention_failure(session_id: str):
+    """Report a failed attention check for a session."""
+    try:
+        session_res = supabase.table("response_sessions").select("attention_check_failures").eq("id", session_id).execute()
+        if not session_res.data:
+            raise HTTPException(status_code=404, detail="Session not found")
+            
+        failures = session_res.data[0].get("attention_check_failures", 0)
+        if failures is None:
+            failures = 0
+        failures += 1
+        
+        weight = 1.0
+        is_valid = True
+        
+        if failures == 1:
+            weight = 0.5
+        elif failures >= 2:
+            weight = 0.0
+            is_valid = False
+            
+        supabase.table("response_sessions").update({
+            "attention_check_failures": failures,
+            "weight": weight,
+            "is_valid": is_valid
+        }).eq("id", session_id).execute()
+        
+        return {"status": "updated", "failures": failures, "weight": weight, "is_valid": is_valid}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.patch("/api/sessions/{session_id}/complete")
 async def complete_session(session_id: str):
     """Mark a session as complete."""
@@ -530,6 +562,9 @@ async def get_survey_results(survey_id: str):
                 "session_id": s["id"],
                 "completed_at": s.get("completed_at"),
                 "referral_source": s.get("referral_source"),
+                "attention_check_failures": s.get("attention_check_failures", 0),
+                "weight": s.get("weight", 1.0),
+                "is_valid": s.get("is_valid", True),
                 "answers": answers_by_session.get(s["id"], [])
             })
 
@@ -680,7 +715,8 @@ def _gather_survey_data(survey_id: str):
     questions = questions_res.data
 
     sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).execute()
-    sessions = sessions_res.data
+    # Filter out invalid sessions
+    sessions = [s for s in sessions_res.data if s.get("is_valid", True) is not False]
 
     if len(sessions) < 3:
         raise HTTPException(status_code=400, detail="Need at least 3 completed responses for AI analysis.")
