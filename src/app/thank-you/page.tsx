@@ -3,6 +3,7 @@ import { CheckCircle2, Clock, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Survey {
   id: string;
@@ -10,17 +11,34 @@ interface Survey {
   description: string;
   estimated_minutes: number;
   thumbnail_url?: string;
+  title_fr?: string;
+  description_fr?: string;
 }
 
 export default function ThankYouPage() {
+  const { language, t } = useLanguage();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/surveys?include_inactive=false')
       .then(res => res.json())
-      .then((data: Survey[]) => {
-        setSurveys(data);
+      .then(async (data: Survey[]) => {
+        const withTranslations = await Promise.all(
+          data.map(async (survey: Survey) => {
+            try {
+              const tr = await fetch(`/api/surveys/${survey.id}/translation`).then(res => res.json());
+              return {
+                ...survey,
+                title_fr: tr?.title_fr,
+                description_fr: tr?.description_fr
+              };
+            } catch {
+              return survey;
+            }
+          })
+        );
+        setSurveys(withTranslations);
         setLoading(false);
       })
       .catch(err => {
@@ -37,18 +55,18 @@ export default function ThankYouPage() {
           <CheckCircle2 className="w-14 h-14 text-[var(--color-cyc-primary)]" />
         </div>
         <h1 className="text-3xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-6">
-          Thank You!
+          {t('Thank You!')}
         </h1>
         <p className="text-lg md:text-xl text-gray-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
-          Your responses have been successfully submitted. We greatly appreciate you taking the time to share your voice and help empower Canadian youth.
+          {t('Your responses have been successfully submitted. We greatly appreciate you taking the time to share your voice and help empower Canadian youth.')}
         </p>
       </motion.div>
 
       {/* Cross-Promotion Section */}
       <div className="w-full max-w-6xl mx-auto">
         <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-3">Keep Your Voice Heard</h2>
-          <p className="text-gray-600 dark:text-slate-400 text-lg">If you have a few more minutes, consider contributing to another active survey.</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-3">{t('Keep Your Voice Heard')}</h2>
+          <p className="text-gray-600 dark:text-slate-400 text-lg">{t('If you have a few more minutes, consider contributing to another active survey.')}</p>
         </div>
 
         {loading ? (
@@ -57,7 +75,10 @@ export default function ThankYouPage() {
           </div>
         ) : surveys.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {surveys.map((survey, i) => (
+            {surveys.map((survey, i) => {
+              const displayTitle = (language === 'fr' && survey.title_fr ? survey.title_fr : survey.title) || survey.title;
+              const displayDescription = (language === 'fr' && survey.description_fr ? survey.description_fr : survey.description) || survey.description;
+              return (
               <motion.div key={survey.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
                 <Link href={`/survey/${survey.id}`} className="block h-full group">
                   <div className="border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden h-full flex flex-col hover:border-[var(--color-cyc-primary)] hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-800">
@@ -73,29 +94,30 @@ export default function ThankYouPage() {
                     )}
                     <div className="p-6 flex flex-col flex-grow">
                       <h3 className="font-bold text-xl text-gray-900 mb-3 group-hover:text-[var(--color-cyc-primary)] transition-colors line-clamp-2">
-                        {survey.title}
+                        {displayTitle}
                       </h3>
                       <p className="text-gray-500 dark:text-slate-500 text-base mb-6 line-clamp-2 flex-grow leading-relaxed">
-                        {survey.description || 'Participate in this survey to share your perspectives.'}
+                        {displayDescription || t('Participate in this survey to share your perspectives.')}
                       </p>
                       <div className="flex items-center justify-between text-sm font-semibold text-gray-500 dark:text-slate-500 mt-auto pt-5 border-t border-gray-100">
                         <span className="flex items-center text-[var(--color-cyc-primary)] bg-teal-50 px-3 py-1.5 rounded-lg">
                           <Clock className="w-4 h-4 mr-1.5" />
-                          {survey.estimated_minutes} min
+                          {survey.estimated_minutes} {t('MIN')}
                         </span>
                         <span className="flex items-center text-white bg-[var(--color-cyc-primary)] px-4 py-1.5 rounded-lg group-hover:bg-[#0A8A85] transition-colors shadow-sm">
-                          Take Survey <ArrowRight className="w-4 h-4 ml-1.5" />
+                          {t('Take Survey')} <ArrowRight className="w-4 h-4 ml-1.5" />
                         </span>
                       </div>
                     </div>
                   </div>
                 </Link>
               </motion.div>
-            ))}
+            );
+            })}
           </div>
         ) : (
           <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700">
-            <p className="text-gray-500 dark:text-slate-500 font-medium text-lg">There are no other active surveys at the moment. Please check back later!</p>
+            <p className="text-gray-500 dark:text-slate-500 font-medium text-lg">{t('There are no other active surveys at the moment. Please check back later!')}</p>
           </div>
         )}
       </div>

@@ -313,7 +313,7 @@ export default function Home() {
                     </div>
                     <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.displayTitle || item.title}</h2>
                     <p className="text-sm md:text-base leading-relaxed line-clamp-4 text-gray-500">
-                      {item.displayDescription || item.description || 'Share your perspective on issues that matter.'}
+                      {item.displayDescription || item.description || t('Share your perspective on issues that matter.')}
                     </p>
                   </div>
                   <div className="mt-auto flex items-center justify-end">

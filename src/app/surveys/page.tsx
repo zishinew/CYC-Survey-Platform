@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function SurveysPage() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
@@ -51,8 +51,8 @@ export default function SurveysPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        <h1 className="text-4xl font-extrabold text-[#04377E] mb-3">Active Surveys</h1>
-        <p className="text-lg text-slate-500 font-medium">Share your voice and help empower Canadian youth.</p>
+        <h1 className="text-4xl font-extrabold text-[#04377E] mb-3">{t('Active Surveys')}</h1>
+        <p className="text-lg text-slate-500 font-medium">{t('Share your voice and help empower Canadian youth.')}</p>
       </motion.div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
@@ -69,21 +69,21 @@ export default function SurveysPage() {
               transition={{ duration: 0.5, delay: 0.1 + idx * 0.1, ease: "easeOut" }}
             >
               <h2 className="text-xl font-extrabold text-[#04377E] mb-3 leading-snug">{displayTitle}</h2>
-              <p className="text-sm text-slate-500 mb-8 flex-1 leading-relaxed">{displayDescription || 'Share your perspective on issues that matter.'}</p>
+              <p className="text-sm text-slate-500 mb-8 flex-1 leading-relaxed">{displayDescription || t('Share your perspective on issues that matter.')}</p>
               
               <div className="flex items-center justify-between mt-auto pt-2">
                 <span className="flex items-center text-xs text-slate-400 font-semibold tracking-wide">
-                  <Clock className="w-3.5 h-3.5 mr-1.5" />{item.estimated_minutes} min
+                  <Clock className="w-3.5 h-3.5 mr-1.5" />{item.estimated_minutes} {t('MIN')}
                 </span>
                 
                 {isCompleted ? (
                   <span className="text-sm text-green-600 font-bold flex items-center bg-green-50 px-3 py-1.5 rounded-md">
-                    <CheckCircle2 className="w-4 h-4 mr-1.5" />Completed
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" />{t('Completed')}
                   </span>
                 ) : (
                   <Link href={`/survey/${item.id}`}
                     className="flex items-center px-4 py-2 rounded-lg text-sm font-bold bg-[#F5C518] text-[#1a1a1a] hover:bg-yellow-400 transition-colors"
-                  >Start Survey<ArrowRight className="w-3.5 h-3.5 ml-1.5" /></Link>
+                  >{t('Start Survey')}<ArrowRight className="w-3.5 h-3.5 ml-1.5" /></Link>
                 )}
               </div>
             </motion.div>

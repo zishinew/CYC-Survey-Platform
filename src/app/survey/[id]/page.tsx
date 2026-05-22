@@ -200,10 +200,10 @@ export default function SurveyPage() {
       })
       .catch(err => {
         console.error("Error fetching survey", err);
-        setError("Survey not found or unavailable.");
+        setError(t('Survey not found or unavailable.'));
         setLoading(false);
       });
-  }, [params.id]);
+  }, [params.id, t]);
 
   // Sync state changes to localStorage for robust resume support
   useEffect(() => {
@@ -296,7 +296,7 @@ export default function SurveyPage() {
     // Manually translate injected attention checks
     if (language === 'fr' && finalQ.id.startsWith('attn-')) {
       if (finalQ.id === 'attn-fixed-1') {
-        finalQ.question_text = '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">Lorsque vous répondez à des questions sur la politique économique, il est important de lire attentivement chaque énoncé. Pour démontrer que vous êtes attentif, veuillez sélectionner l\'option de réponse "4" pour cette question spécifique.</span>Dans quelle mesure êtes-vous d\'accord ou en désaccord avec le calendrier des projets d\'infrastructure fédéraux actuels ?';
+        finalQ.question_text = '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">Lorsque vous répondez à des questions sur la politique économique, il est important de lire attentivement chaque énoncé. Pour démontrer que vous êtes attentif, veuillez sélectionner l\'option de réponse "4 (D\'accord)" pour cette question spécifique.</span>Dans quelle mesure êtes-vous d\'accord ou en désaccord avec le calendrier des projets d\'infrastructure fédéraux actuels ?';
       } else if (finalQ.id === 'attn-fixed-2') {
         finalQ.question_text = '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">Pour nous assurer que nos normes de qualité des données sont respectées, veuillez répondre à cet énoncé :</span>"Le gouvernement du Canada a officiellement dissous la monnaie du pays et interdit l\'échange de tous biens et services."';
         finalQ.options = { choices: ["Vrai", "Faux"] };
@@ -379,9 +379,9 @@ export default function SurveyPage() {
           <div className="mx-auto flex justify-center items-center w-20 h-20 bg-teal-50 rounded-full mb-6">
             <CheckCircle2 className="w-12 h-12 text-[var(--color-cyc-primary)]" />
           </div>
-          <h1 className="text-3xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-4">Already Completed</h1>
+          <h1 className="text-3xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-4">{t('Already Completed')}</h1>
           <p className="text-lg text-gray-600 dark:text-slate-400 dark:text-slate-300 leading-relaxed">
-            You have already submitted your response for <strong>{displayTitle}</strong>. Thank you for participating!
+            {t('You have already submitted your response for')} <strong>{displayTitle}</strong>. {t('Thank you for participating!')}
           </p>
         </div>
       </div>
@@ -431,7 +431,7 @@ export default function SurveyPage() {
   const handleNext = async () => {
     if (isEmailStep) {
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        alert('Please enter a valid email address.');
+        alert(t('Please enter a valid email address.'));
         return;
       }
       await finishSurvey();
@@ -444,8 +444,8 @@ export default function SurveyPage() {
         const val = answers[currentQuestion.id];
         let passed = false;
         if (currentQuestion.id === 'attn-fixed-1' && val === 4) passed = true;
-        if (currentQuestion.id === 'attn-fixed-2' && val === 'False') passed = true;
-        if (currentQuestion.id === 'attn-inact-1' && val === 'Yes') passed = true;
+        if (currentQuestion.id === 'attn-fixed-2' && (val === 'False' || val === 'Faux')) passed = true;
+        if (currentQuestion.id === 'attn-inact-1' && (val === 'Yes' || val === 'Oui')) passed = true;
         
         if (!passed && sessionId) {
             fetch(`/api/sessions/${sessionId}/attention-failure`, { method: 'POST' }).catch(()=>console.error("Failed to report attn"));
@@ -454,12 +454,12 @@ export default function SurveyPage() {
       
       // Inject inactivity check dynamically
       if (inactivityTriggered && inactivityChecksShown < 1 && survey) {
-          const attnInact = {
+            const attnInact = {
               id: 'attn-inact-1',
               type: 'multiple_choice',
-              question_text: 'Are you still there? Please select "Yes" to continue.',
+              question_text: t('Are you still there? Please select "Yes" to continue.'),
               is_required: true,
-              options: { choices: ["No", "Yes", "Maybe"] }
+              options: { choices: [t('No'), t('Yes'), t('Maybe')] }
           };
           const newQs = [...survey.questions];
           newQs.splice(currentStep + 1, 0, attnInact);
@@ -473,7 +473,7 @@ export default function SurveyPage() {
       if (currentQuestion.is_required && currentQuestion.type !== 'section_header') {
         const val = answers[currentQuestion.id];
         if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
-          alert('This question is required. Please provide an answer.');
+          alert(t('This question is required. Please provide an answer.'));
           return;
         }
       }
@@ -549,7 +549,7 @@ export default function SurveyPage() {
         body: JSON.stringify({ email, answers: submissionAnswers })
       });
       
-      if (!res.ok) throw new Error('Failed to submit response');
+      if (!res.ok) throw new Error(t('Failed to submit response'));
 
       const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
       if (!completedSurveys.includes(survey.id)) {
@@ -564,7 +564,7 @@ export default function SurveyPage() {
     } catch (err) {
       console.error("Submission error", err);
       setSubmitting(false);
-      alert("Failed to submit survey. Please try again.");
+      alert(t('Failed to submit survey. Please try again.'));
     }
   };
 
@@ -578,7 +578,7 @@ export default function SurveyPage() {
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="w-full">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-6 leading-tight">{displayTitle}</h1>
           <p className={`text-lg sm:text-xl text-gray-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed text-${survey.description_alignment || 'left'}`}>
-            {displayDescription || "Share your voice and help empower Canadian youth."}
+            {displayDescription || t('Share your voice and help empower Canadian youth.')}
           </p>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setHasStarted(true)}
             className="btn-primary text-xl px-10 py-4 rounded-full shadow-md shadow-teal-500/5 dark:shadow-teal-400/5 hover:shadow-lg transition-all flex items-center justify-center mx-auto">
@@ -677,7 +677,7 @@ export default function SurveyPage() {
                     onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})}
                     className="w-full p-3 sm:p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all text-base sm:text-lg bg-white dark:bg-white/5 cursor-pointer"
                   >
-                    <option value="" disabled>Select an option...</option>
+                    <option value="" disabled>{t('Select an option...')}</option>
                     {displayChoices.map((opt: string) => (
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
@@ -730,17 +730,17 @@ export default function SurveyPage() {
                   </div>
                   {opts.has_calculator && refNumbers[currentQuestion.id] !== undefined && (
                     <div className="text-lg font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-2">
-                      {Math.round(((answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50) / 100) * (refNumbers[currentQuestion.id] || 0))} out of {refNumbers[currentQuestion.id]}
+                      {Math.round(((answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50) / 100) * (refNumbers[currentQuestion.id] || 0))} {t('out of')} {refNumbers[currentQuestion.id]}
                     </div>
                   )}
                   {opts.has_calculator && (
                     <div className="mb-4 flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-600 dark:text-slate-400">Enter a number:</label>
+                      <label className="text-sm font-medium text-gray-600 dark:text-slate-400">{t('Enter a number:')}</label>
                       <input type="number" min={0}
                         value={refNumbers[currentQuestion.id] ?? ''}
                         onChange={(e) => setRefNumbers({...refNumbers, [currentQuestion.id]: e.target.value ? Number(e.target.value) : undefined})}
                         className="w-28 p-1.5 border-2 border-gray-200 rounded-lg text-center focus:border-[var(--color-cyc-primary)] focus:outline-none font-bold"
-                        placeholder="e.g. 100" />
+                        placeholder={t('e.g. 100')} />
                     </div>
                   )}
                   <input type="range" min="0" max="100"
@@ -764,7 +764,7 @@ export default function SurveyPage() {
 
                     return (
                       <>
-                        {maxSelections && <p className="text-sm text-gray-500 font-medium mb-3">Select up to {maxSelections} options</p>}
+                        {maxSelections && <p className="text-sm text-gray-500 font-medium mb-3">{t('Select up to')} {maxSelections} {t('options')}</p>}
                         {displayChoices.map((opt: string) => {
                           const isChecked = currentSelected.includes(opt);
                           const isDisabled = !isChecked && maxSelections && currentSelected.length >= maxSelections;
@@ -825,9 +825,9 @@ export default function SurveyPage() {
               {currentQuestion.type === 'likert_scale' && (
                 <div className="flex flex-col items-center w-full px-2 sm:px-6 py-6">
                   <div className="flex justify-between w-full mb-6 text-xs sm:text-sm font-bold text-gray-500">
-                    <span className="w-1/3 text-left">Strongly Disagree</span>
-                    <span className="w-1/3 text-center">Neutral</span>
-                    <span className="w-1/3 text-right">Strongly Agree</span>
+                    <span className="w-1/3 text-left">{t('Strongly Disagree')}</span>
+                    <span className="w-1/3 text-center">{t('Neutral')}</span>
+                    <span className="w-1/3 text-right">{t('Strongly Agree')}</span>
                   </div>
                   <div className="flex justify-between items-center w-full relative z-0">
                     <div className="absolute top-1/2 left-4 right-4 h-1.5 bg-gray-200 z-0 -translate-y-1/2 rounded-full"></div>
@@ -848,7 +848,7 @@ export default function SurveyPage() {
               {currentQuestion.type === 'short_answer' && (
                 <textarea rows={4}
                   className="w-full p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all resize-none text-base sm:text-lg"
-                  placeholder="Share your thoughts here..."
+                  placeholder={t('Share your thoughts here...')}
                   value={answers[currentQuestion.id] || ''}
                   onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})} />
               )}
