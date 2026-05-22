@@ -375,6 +375,7 @@ export default function EditSurvey() {
           optionsFr.definitions = draftQ.definitions_fr;
         }
         return {
+          id: draftQ.id,
           ...q,
           question_text: draftQ.question_text_fr || draftQ.question_text || '',
           options: optionsFr

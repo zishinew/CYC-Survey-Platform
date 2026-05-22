@@ -285,6 +285,7 @@ export default function CreateSurvey() {
 
       const payloadFr = payload.questions.map((q, idx) => {
         const draftQ = questions[idx];
+        const createdQ = createdSurvey.questions?.[idx];
         let optionsFr: any = null;
         if (q.type === 'multiple_choice' || q.type === 'dropdown') {
           optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
@@ -300,18 +301,20 @@ export default function CreateSurvey() {
           optionsFr.definitions = draftQ.definitions_fr;
         }
         return {
+          id: createdQ?.id,
           ...q,
           question_text: draftQ.question_text_fr || draftQ.question_text || '',
           options: optionsFr
         };
       });
 
-      if (payloadFr.length > 0) {
+      const filteredPayloadFr = payloadFr.filter((q: any) => q.id);
+      if (filteredPayloadFr.length > 0) {
         const resFr = await fetch(`/api/surveys/${createdSurvey.id}/translation`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            questions_fr: payloadFr,
+            questions_fr: filteredPayloadFr,
             title_fr: titleFr || '',
             description_fr: descriptionFr || ''
           })
