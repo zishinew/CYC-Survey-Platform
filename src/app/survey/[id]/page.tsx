@@ -51,6 +51,7 @@ export default function SurveyPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { language, t } = useLanguage();
   const referralSource = searchParams.get('ref') || null;
   const [survey, setSurvey] = useState<any>(null);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
