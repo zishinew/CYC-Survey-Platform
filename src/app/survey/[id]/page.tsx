@@ -213,8 +213,8 @@ export default function SurveyPage() {
 
   // Auto-advance for simple section headers
   useEffect(() => {
-    const isEmailStep = currentStep === 0;
-    const currentQ = survey && !isEmailStep ? survey.questions[currentStep - 1] : null;
+    const isEmailStep = survey ? currentStep === survey.questions.length : false;
+    const currentQ = survey && !isEmailStep ? survey.questions[currentStep] : null;
     if (!isEmailStep && currentQ?.type === 'section_header') {
       const opts = getOpts(currentQ);
       if (!opts.description && (!opts.attachments || opts.attachments.length === 0)) {
@@ -263,8 +263,8 @@ export default function SurveyPage() {
 
   // --- Derived State (Must be before early returns for hooks) ---
   const totalSteps = survey ? survey.questions.length + 1 : 0;
-  const isEmailStep = currentStep === 0;
-  const currentQuestion = survey && !isEmailStep ? survey.questions[currentStep - 1] : null;
+  const isEmailStep = survey ? currentStep === survey.questions.length : false;
+  const currentQuestion = survey && !isEmailStep ? survey.questions[currentStep] : null;
   const progress = survey && totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
 
   // Helper to shuffle array (Fisher-Yates)
@@ -384,161 +384,68 @@ export default function SurveyPage() {
   };
 
   const handleNext = async () => {
-    // Step 0: create/resume session
-    if (currentStep === 0) {
+    if (isEmailStep) {
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         alert('Please enter a valid email address.');
         return;
       }
-      try {
-        // 1. Duplicate Prevention Check
-        const statusRes = await fetch(`/api/surveys/${survey.id}/check-status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const statusData = await statusRes.json();
-        if (statusData.has_submitted) {
-          setAlreadyCompleted(true);
-          const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
-          if (!completedSurveys.includes(survey.id)) {
-            completedSurveys.push(survey.id);
-            localStorage.setItem('cyc_completed_surveys', JSON.stringify(completedSurveys));
-          }
-          return;
-        }
-
-        // Save to global email memory
-        localStorage.setItem('cyc_global_email', email);
-
-        // 2. Fetch Profile Data
-        let fetchedProfileData = profileData;
-        if (Object.keys(profileData).length === 0) {
-          const profileRes = await fetch(`/api/user/profile-data?email=${encodeURIComponent(email)}`);
-          if (profileRes.ok) {
-            fetchedProfileData = await profileRes.json();
-            setProfileData(fetchedProfileData);
-          }
-        }
-
-        const sessionBody: any = { email };
-        if (referralSource) sessionBody.referral_source = referralSource;
-        const res = await fetch(`/api/surveys/${survey.id}/sessions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sessionBody)
-        });
-        const data = await res.json();
-        setSessionId(data.session_id);
-
-        const newAnswers: Record<string, any> = {};
-        if (data.resumed && data.saved_answers?.length > 0) {
-          for (const a of data.saved_answers) {
-            if (a.answer_options) newAnswers[a.question_id] = a.answer_options;
-            else if (a.answer_numeric !== null && a.answer_numeric !== undefined) newAnswers[a.question_id] = a.answer_numeric;
-            else if (a.answer_text) newAnswers[a.question_id] = a.answer_text;
-          }
-        }
-
-        // Pre-fill conditional answers
-        survey.questions.forEach((q: any) => {
-          if (q.is_conditional && fetchedProfileData[q.question_text] && newAnswers[q.id] === undefined) {
-            const past = fetchedProfileData[q.question_text];
-            if (past.answer_options) newAnswers[q.id] = past.answer_options;
-            else if (past.answer_numeric !== null) newAnswers[q.id] = past.answer_numeric;
-            else if (past.answer_text) newAnswers[q.id] = past.answer_text;
-          }
-        });
-
-        setAnswers(newAnswers);
-        
-        if (data.resumed && data.current_step > 0) {
-           setCurrentStep(data.current_step);
-        } else {
-           setCurrentStep(getNextVisibleStep(1, true, fetchedProfileData));
-        }
-        return;
-      } catch {
-        alert('Failed to start session. Please try again.');
-        return;
-      }
+      await finishSurvey();
+      return;
     }
 
-    // Evaluate attention check if applicable
-    if (currentStep > 0 && currentStep <= survey.questions.length) {
-      const q = survey.questions[currentStep - 1];
-      if (q.id.startsWith('attn-')) {
-        const val = answers[q.id];
+    if (!isEmailStep && currentQuestion) {
+      // Evaluate attention check if applicable
+      if (currentQuestion.id.startsWith('attn-')) {
+        const val = answers[currentQuestion.id];
         let passed = false;
-        if (q.id === 'attn-fixed-1' && val === '4 (Agree)') passed = true;
-        if (q.id === 'attn-fixed-2' && val === 'False') passed = true;
-        if (q.id === 'attn-inact-1' && val === 'Yes') passed = true;
+        if (currentQuestion.id === 'attn-fixed-1' && val === '4 (Agree)') passed = true;
+        if (currentQuestion.id === 'attn-fixed-2' && val === 'False') passed = true;
+        if (currentQuestion.id === 'attn-inact-1' && val === 'Yes') passed = true;
         
         if (!passed && sessionId) {
             fetch(`/api/sessions/${sessionId}/attention-failure`, { method: 'POST' }).catch(()=>console.error("Failed to report attn"));
         }
       }
-    }
-    
-    // Inject inactivity check dynamically
-    if (inactivityTriggered && inactivityChecksShown < 1 && survey && currentStep > 0) {
-        const attnInact = {
-            id: 'attn-inact-1',
-            type: 'multiple_choice',
-            question_text: 'Are you still there? Please select "Yes" to continue.',
-            is_required: true,
-            options: { choices: ["No", "Yes", "Maybe"] }
-        };
-        const newQs = [...survey.questions];
-        newQs.splice(currentStep, 0, attnInact);
-        
-        setSurvey((prev: any) => ({ ...prev, questions: newQs }));
-        setInactivityChecksShown(prev => prev + 1);
-        setInactivityTriggered(false);
-    }
+      
+      // Inject inactivity check dynamically
+      if (inactivityTriggered && inactivityChecksShown < 1 && survey) {
+          const attnInact = {
+              id: 'attn-inact-1',
+              type: 'multiple_choice',
+              question_text: 'Are you still there? Please select "Yes" to continue.',
+              is_required: true,
+              options: { choices: ["No", "Yes", "Maybe"] }
+          };
+          const newQs = [...survey.questions];
+          newQs.splice(currentStep + 1, 0, attnInact);
+          
+          setSurvey((prev: any) => ({ ...prev, questions: newQs }));
+          setInactivityChecksShown(prev => prev + 1);
+          setInactivityTriggered(false);
+      }
 
-    // Validate required questions before moving
-    if (currentStep > 0 && currentStep <= survey.questions.length) {
-      const q = survey.questions[currentStep - 1];
-      if (q.is_required && q.type !== 'section_header') {
-        const val = answers[q.id];
+      // Validate required questions before moving
+      if (currentQuestion.is_required && currentQuestion.type !== 'section_header') {
+        const val = answers[currentQuestion.id];
         if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
           alert('This question is required. Please provide an answer.');
           return;
         }
       }
-    }
 
-    // Save current answer before moving
-    if (sessionId) {
-      await saveCurrentAnswer(sessionId, currentStep - 1);
+      const qId = currentQuestion.id;
+      setTimeSpentAccumulator((prev: any) => ({ ...prev, [qId]: (prev[qId] || 0) + (Date.now() - questionEnterTime) }));
       
       const nextStep = getNextVisibleStep(currentStep + 1, true);
-      
-      // Update step on server
-      fetch(`/api/sessions/${sessionId}/step`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_step: nextStep })
-      }).catch(() => {});
-      
-      if (currentStep > 0 && currentStep <= survey.questions.length) {
-          const qId = survey.questions[currentStep - 1].id;
-          setTimeSpentAccumulator((prev: any) => ({ ...prev, [qId]: (prev[qId] || 0) + (Date.now() - questionEnterTime) }));
-      }
       setQuestionEnterTime(Date.now());
-      if (nextStep <= survey.questions.length) {
-        setCurrentStep(nextStep);
-      } else {
-        await finishSurvey();
-      }
+      setCurrentStep(nextStep);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
-      if (survey && survey.questions[currentStep - 1]) {
-          const qId = survey.questions[currentStep - 1].id;
+      if (survey && survey.questions[currentStep]) {
+          const qId = survey.questions[currentStep].id;
           setTimeSpentAccumulator((prev: any) => ({ ...prev, [qId]: (prev[qId] || 0) + (Date.now() - questionEnterTime) }));
       }
       setQuestionEnterTime(Date.now());
@@ -549,11 +456,55 @@ export default function SurveyPage() {
   const finishSurvey = async () => {
     setSubmitting(true);
     try {
-      if (sessionId) {
-        // Save last answer then mark complete
-        await saveCurrentAnswer(sessionId, currentStep - 1);
-        await fetch(`/api/sessions/${sessionId}/complete`, { method: 'PATCH' });
+      // 1. Duplicate Prevention Check
+      const statusRes = await fetch(`/api/surveys/${survey.id}/check-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const statusData = await statusRes.json();
+      if (statusData.has_submitted) {
+        setAlreadyCompleted(true);
+        const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
+        if (!completedSurveys.includes(survey.id)) {
+          completedSurveys.push(survey.id);
+          localStorage.setItem('cyc_completed_surveys', JSON.stringify(completedSurveys));
+        }
+        setSubmitting(false);
+        return;
       }
+
+      // Save to global email memory
+      localStorage.setItem('cyc_global_email', email);
+
+      // Build answers payload
+      const submissionAnswers = [];
+      for (const [qId, val] of Object.entries(answers)) {
+        const q = survey.questions.find((x: any) => x.id === qId);
+        if (!q || q.type === 'section_header' || q.id.startsWith('attn-')) continue;
+        
+        const answerObj: any = {
+          question_id: q.id,
+          time_spent: timeSpentAccumulator[qId] || 0,
+        };
+        if (q.type === 'multiple_choice' || q.type === 'short_answer') {
+          answerObj.answer_text = val;
+        } else if (q.type === 'rating_scale' || q.type === 'likert_scale') {
+          answerObj.answer_numeric = val;
+        } else if (q.type === 'checkboxes') {
+          answerObj.answer_options = val;
+        }
+        submissionAnswers.push(answerObj);
+      }
+
+      // Submit all at once via the legacy responses endpoint
+      const res = await fetch(`/api/surveys/${survey.id}/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, answers: submissionAnswers })
+      });
+      
+      if (!res.ok) throw new Error('Failed to submit response');
 
       const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
       if (!completedSurveys.includes(survey.id)) {
@@ -602,7 +553,7 @@ export default function SurveyPage() {
           <motion.div className="bg-[var(--color-cyc-primary)] h-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
         </div>
         <p className="text-xs sm:text-sm font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mt-3">
-          {isEmailStep ? 'Before we begin' : (currentQuestion?.type === 'section_header' ? 'Information' : `Question ${currentStep} of ${survey.questions.length}`)}
+          {isEmailStep ? 'Almost Done!' : (currentQuestion?.type === 'section_header' ? 'Information' : `Question ${currentStep + 1} of ${survey.questions.length}`)}
         </p>
       </motion.div>
 
@@ -625,7 +576,9 @@ export default function SurveyPage() {
                   className="w-full p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all text-base sm:text-lg text-center"
                   placeholder="you@example.com"
                 />
-                <p className="text-xs text-gray-400 dark:text-slate-500 text-center mt-3">Your email will be kept confidential and is used only for tracking responses.</p>
+                <p className="text-xs sm:text-sm text-gray-400 dark:text-slate-500 text-center mt-4 px-2 max-w-lg mx-auto leading-relaxed">
+                  Your email address is being collected only to contact you when the second and third questionnaires are released. Email addresses will remain confidential and will not be shared publicly or used for unrelated purposes.
+                </p>
               </>
             )}
 
