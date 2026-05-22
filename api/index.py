@@ -383,6 +383,33 @@ async def get_survey_translation(survey_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/api/surveys/{survey_id}/translation")
+async def update_survey_translation(survey_id: str, request: Request):
+    """Manually update the French translated questions JSON."""
+    try:
+        body = await request.json()
+        questions_fr = body.get("questions_fr")
+        if not questions_fr:
+            raise HTTPException(status_code=400, detail="Missing questions_fr array")
+
+        existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
+        if existing.data:
+            supabase.table("ai_analyses").update({
+                "data": questions_fr,
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", existing.data[0]["id"]).execute()
+        else:
+            supabase.table("ai_analyses").insert({
+                "survey_id": survey_id,
+                "analysis_type": "translation_fr",
+                "data": questions_fr,
+                "updated_at": datetime.utcnow().isoformat()
+            }).execute()
+            
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.put("/api/surveys/{survey_id}", response_model=SurveyDetail)
 async def update_survey(survey_id: str, survey: SurveyCreate):
     """Update an existing survey and its questions. Fails if the survey has ever been published."""
