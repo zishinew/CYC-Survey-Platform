@@ -417,11 +417,29 @@ export default function EditSurvey() {
 
   return (
     <div className="max-w-4xl mx-auto py-8">
-      <div className="flex items-center mb-6">
-        <Link href="/admin" className="text-gray-500 dark:text-slate-500 hover:text-[var(--color-cyc-secondary)] dark:text-slate-100 mr-4">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Edit Survey</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Link href="/admin" className="text-gray-500 dark:text-slate-500 hover:text-[var(--color-cyc-secondary)] dark:text-slate-100 mr-4">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Edit Survey</h1>
+        </div>
+        <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'en' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            English
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('fr')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'fr' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            Français
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -521,22 +539,6 @@ export default function EditSurvey() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
-            <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setLanguage('en')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'en' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-              >
-                English
-              </button>
-              <button
-                type="button"
-                onClick={() => setLanguage('fr')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'fr' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-              >
-                Français
-              </button>
-            </div>
           </div>
           
           {language === 'fr' && (
@@ -572,7 +574,7 @@ export default function EditSurvey() {
                     )}
                     <input
                       type="text"
-                      required
+                      required={language === 'en'}
                       value={language === 'en' ? q.question_text : (q.question_text_fr || '')}
                       onChange={(e) => updateQuestion(q.id, language === 'en' ? 'question_text' : 'question_text_fr', e.target.value)}
                       placeholder={language === 'fr' ? "Traduction française" : "Question Text"}
@@ -649,7 +651,7 @@ export default function EditSurvey() {
                         <input
                           type="text"
                           value={opt}
-                          required
+                          required={language === 'en'}
                           placeholder={language === 'fr' ? (getOptionsArray(q.options)[oIdx] || `Option ${oIdx + 1} (Francais)`) : `Option ${oIdx + 1}`}
                           onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                           className={`flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent ${language === 'fr' ? 'border-blue-200 focus:border-blue-500' : ''}`}

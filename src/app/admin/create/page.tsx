@@ -10,8 +10,10 @@ type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'check
 interface QuestionDraft {
   id: string;
   question_text: string;
+  question_text_fr?: string;
   type: QuestionType;
   options: string[];
+  options_fr?: string[];
   is_required: boolean;
   is_conditional: boolean;
   max_selections?: number;
@@ -20,15 +22,19 @@ interface QuestionDraft {
   locked_choices?: string[];
   reference_number?: number;
   section_description?: string;
+  section_description_fr?: string;
   description_alignment?: 'left' | 'center' | 'justify';
   attachments?: { url: string; name: string; type: string }[];
   definitions?: {term: string; definition: string}[];
+  definitions_fr?: {term: string; definition: string}[];
 }
 
 export default function CreateSurvey() {
   const router = useRouter();
   const [title, setTitle] = useState('');
+  const [titleFr, setTitleFr] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionFr, setDescriptionFr] = useState('');
   const [descriptionAlignment, setDescriptionAlignment] = useState('left');
   const [estimatedMinutes, setEstimatedMinutes] = useState(5);
   const [isActive, setIsActive] = useState(false);
@@ -37,6 +43,22 @@ export default function CreateSurvey() {
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [language, setLanguage] = useState<'en' | 'fr'>('en');
+
+  const getOptionsArray = (options: any) => {
+    if (!options) return [];
+    if (Array.isArray(options)) return options;
+    return options.choices || [];
+  };
+
+  const getOptionsForDisplay = (q: QuestionDraft) => {
+    if (language === 'fr') {
+      const frOptions = getOptionsArray(q.options_fr);
+      if (frOptions.length > 0) return frOptions;
+      return getOptionsArray(q.options);
+    }
+    return getOptionsArray(q.options);
+  };
 
   const uploadFile = async (file: File): Promise<{ url: string; filename: string } | null> => {
     const formData = new FormData();
@@ -85,8 +107,10 @@ export default function CreateSurvey() {
     const newQ: QuestionDraft = {
       id: Math.random().toString(36).substr(2, 9),
       question_text: '',
+      question_text_fr: '',
       type,
       options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? ['Option 1'] : [],
+      options_fr: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? [] : [],
       is_required: type === 'section_header' ? false : true,
       is_conditional: false,
       max_selections: type === 'checkboxes' ? 3 : undefined,
@@ -95,8 +119,11 @@ export default function CreateSurvey() {
       locked_choices: [],
       reference_number: type === 'rating_scale' ? undefined : undefined,
       section_description: type === 'section_header' ? '' : undefined,
+      section_description_fr: type === 'section_header' ? '' : undefined,
       description_alignment: type === 'section_header' ? 'left' : undefined,
-      attachments: type === 'section_header' ? [] : undefined
+      attachments: type === 'section_header' ? [] : undefined,
+      definitions: [],
+      definitions_fr: []
     };
     setQuestions([...questions, newQ]);
   };
@@ -108,6 +135,12 @@ export default function CreateSurvey() {
   const updateOption = (qId: string, index: number, value: string) => {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
+      if (language === 'fr') {
+        const base = getOptionsArray(q.options_fr);
+        const arr = (base.length > 0 ? base : getOptionsArray(q.options)).slice();
+        arr[index] = value;
+        return { ...q, options_fr: arr };
+      }
       const newOptions = [...q.options];
       newOptions[index] = value;
       return { ...q, options: newOptions };
@@ -124,6 +157,9 @@ export default function CreateSurvey() {
   const addDefinition = (qId: string) => {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
+      if (language === 'fr') {
+        return { ...q, definitions_fr: [...(q.definitions_fr || []), { term: '', definition: '' }] };
+      }
       return { ...q, definitions: [...(q.definitions || []), { term: '', definition: '' }] };
     }));
   };
@@ -131,6 +167,12 @@ export default function CreateSurvey() {
   const updateDefinition = (qId: string, index: number, field: 'term' | 'definition', value: string) => {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
+      if (language === 'fr') {
+        const newDefs = [...(q.definitions_fr || q.definitions || [])];
+        if (!newDefs[index]) newDefs[index] = { term: '', definition: '' };
+        newDefs[index] = { ...newDefs[index], [field]: value };
+        return { ...q, definitions_fr: newDefs };
+      }
       const newDefs = [...(q.definitions || [])];
       newDefs[index] = { ...newDefs[index], [field]: value };
       return { ...q, definitions: newDefs };
@@ -239,6 +281,44 @@ export default function CreateSurvey() {
       });
 
       if (!res.ok) throw new Error("Failed to create survey");
+      const createdSurvey = await res.json();
+
+      const payloadFr = payload.questions.map((q, idx) => {
+        const draftQ = questions[idx];
+        let optionsFr: any = null;
+        if (q.type === 'multiple_choice' || q.type === 'dropdown') {
+          optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
+        } else if (q.type === 'checkboxes') {
+          optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], max_selections: q.options?.max_selections, has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
+        } else if (q.type === 'rating_scale' && draftQ.reference_number) {
+          optionsFr = { has_calculator: true };
+        } else if (q.type === 'section_header') {
+          optionsFr = { description: draftQ.section_description_fr || draftQ.section_description || '', attachments: draftQ.attachments || [], description_alignment: draftQ.description_alignment || 'left' };
+        }
+        if (draftQ.definitions_fr && draftQ.definitions_fr.length > 0) {
+          if (!optionsFr) optionsFr = {};
+          optionsFr.definitions = draftQ.definitions_fr;
+        }
+        return {
+          ...q,
+          question_text: draftQ.question_text_fr || draftQ.question_text || '',
+          options: optionsFr
+        };
+      });
+
+      if (payloadFr.length > 0) {
+        const resFr = await fetch(`/api/surveys/${createdSurvey.id}/translation`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questions_fr: payloadFr,
+            title_fr: titleFr || '',
+            description_fr: descriptionFr || ''
+          })
+        });
+
+        if (!resFr.ok) throw new Error('Failed to save French translations');
+      }
       router.push('/admin');
     } catch (err: any) {
       setError(err.message || 'Error saving survey');
@@ -248,11 +328,29 @@ export default function CreateSurvey() {
 
   return (
     <div className="max-w-4xl mx-auto py-8">
-      <div className="flex items-center mb-6">
-        <Link href="/admin" className="text-gray-500 dark:text-slate-500 hover:text-[var(--color-cyc-secondary)] dark:text-slate-100 mr-4">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Create New Survey</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Link href="/admin" className="text-gray-500 dark:text-slate-500 hover:text-[var(--color-cyc-secondary)] dark:text-slate-100 mr-4">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Create New Survey</h1>
+        </div>
+        <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'en' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            English
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('fr')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'fr' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            Français
+          </button>
+        </div>
       </div>
 
       {error && <div className="bg-red-50 text-red-600 p-4 rounded mb-6">{error}</div>}
@@ -262,9 +360,15 @@ export default function CreateSurvey() {
         <div className="card space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Survey Title</label>
-            <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)}
+            {language === 'fr' && (
+              <div className="text-sm text-gray-500 dark:text-slate-400 mb-1 px-2 border-l-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-2 rounded-r">
+                {title || "No English title provided"}
+              </div>
+            )}
+            <input type="text" required={language === 'en'} value={language === 'en' ? title : titleFr}
+              onChange={(e) => language === 'en' ? setTitle(e.target.value) : setTitleFr(e.target.value)}
               className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
-              placeholder="e.g. Mental Health Perspectives 2026" />
+              placeholder={language === 'fr' ? 'Titre en francais' : 'e.g. Mental Health Perspectives 2026'} />
           </div>
           <div>
             <div className="flex justify-between items-center mb-1">
@@ -278,12 +382,17 @@ export default function CreateSurvey() {
                 </select>
               </div>
             </div>
+            {language === 'fr' && (
+              <div className="text-sm text-gray-500 dark:text-slate-400 mb-2 px-2 border-l-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-2 rounded-r">
+                {description || "No English description provided"}
+              </div>
+            )}
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={language === 'en' ? description : descriptionFr}
+              onChange={(e) => language === 'en' ? setDescription(e.target.value) : setDescriptionFr(e.target.value)}
               className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:border-transparent transition-all"
               rows={4}
-              placeholder="What is this survey about?"
+              placeholder={language === 'fr' ? "De quoi s'agit-il?" : "What is this survey about?"}
             />
           </div>
 
@@ -326,10 +435,17 @@ export default function CreateSurvey() {
         {/* Questions List */}
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
+
+          {language === 'fr' && (
+            <div className="bg-blue-50 dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 p-3 rounded-lg text-sm flex items-start">
+              <FileText className="w-5 h-5 mr-2 flex-shrink-0" />
+              <p><strong>Translation Mode:</strong> Structural changes (adding/deleting questions or options) are disabled while translating. Switch back to English to modify the survey structure.</p>
+            </div>
+          )}
           
           {questions.map((q, qIdx) => (
             <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
-              <div className="absolute top-4 right-4 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language === 'fr' ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
                 <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 dark:text-slate-500 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                 </button>
@@ -345,15 +461,20 @@ export default function CreateSurvey() {
                 <span className="font-bold text-gray-400 dark:text-slate-500 mt-8 w-6 text-right">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
                 <div className="flex-grow">
                   <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 capitalize mb-1">{q.type.replace('_', ' ')}</label>
+                  {language === 'fr' && (
+                    <div className="text-sm text-gray-500 dark:text-slate-400 mb-2 px-2 border-l-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-2 rounded-r">
+                      {q.question_text || "No English text provided"}
+                    </div>
+                  )}
                   <RichTextEditor
-                    value={q.question_text}
-                    onChange={(val) => updateQuestion(q.id, 'question_text', val)}
-                    placeholder={q.type === 'section_header' ? 'Section Title' : 'Type your question here...'}
+                    value={language === 'en' ? q.question_text : (q.question_text_fr || '')}
+                    onChange={(val) => updateQuestion(q.id, language === 'en' ? 'question_text' : 'question_text_fr', val)}
+                    placeholder={language === 'en' ? (q.type === 'section_header' ? 'Section Title' : 'Type your question here...') : 'Traduction francaise'}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 dark:text-slate-400 ml-10">
+              <div className={`flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 dark:text-slate-400 ml-10 ${language === 'fr' ? 'hidden' : ''}`}>
                 
                 {q.type !== 'section_header' && (
                   <>
@@ -422,12 +543,12 @@ export default function CreateSurvey() {
                     </div>
                   </div>
                     <RichTextEditor
-                        value={q.section_description || ''}
-                        onChange={(val) => updateQuestion(q.id, 'section_description', val)}
-                        placeholder="Provide context or instructions before the next set of questions..."
+                        value={language === 'en' ? (q.section_description || '') : (q.section_description_fr || '')}
+                        onChange={(val) => updateQuestion(q.id, language === 'en' ? 'section_description' : 'section_description_fr', val)}
+                        placeholder={language === 'en' ? 'Provide context or instructions before the next set of questions...' : 'Traduction francaise du contexte...'}
                       />
                   </div>
-                  <div>
+                  <div className={language === 'fr' ? 'hidden' : ''}>
                     <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 mb-1">Attachments</label>
                     {(q.attachments || []).map((att, aIdx) => (
                       <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white dark:bg-slate-800 p-2 rounded border text-sm">
@@ -448,17 +569,17 @@ export default function CreateSurvey() {
               {/* Options for MC / Checkboxes */}
               {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
                 <div className="ml-10 pr-28 space-y-2">
-                  {q.options.map((opt, oIdx) => (
+                  {getOptionsForDisplay(q).map((opt, oIdx) => (
                     <div key={oIdx} className="flex items-center space-x-2">
                       <div className={`w-4 h-4 border border-gray-400 ${(q.type === 'multiple_choice' || q.type === 'dropdown') ? 'rounded-full' : 'rounded'}`} />
-                      <input type="text" value={opt} required
+                      <input type="text" value={opt} required={language === 'en'}
                         onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
-                        className="flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent" />
-                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'}`} title="Lock Option Position">
+                        className={`flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent ${language === 'fr' ? 'border-blue-200 focus:border-blue-500' : ''}`} />
+                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'} ${language === 'fr' ? 'hidden' : ''}`} title="Lock Option Position">
                         {(q.locked_choices || []).includes(opt) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                       </button>
-                      {q.options.length > 1 && (
-                        <button type="button" onClick={() => removeOption(q.id, oIdx)} className="text-gray-400 dark:text-slate-500 hover:text-red-500">&times;</button>
+                      {getOptionsForDisplay(q).length > 1 && (
+                        <button type="button" onClick={() => removeOption(q.id, oIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 ${language === 'fr' ? 'hidden' : ''}`}>&times;</button>
                       )}
                     </div>
                   ))}
@@ -468,7 +589,7 @@ export default function CreateSurvey() {
                       <span className="text-sm text-gray-500 dark:text-slate-500 italic">Other: ____</span>
                     </div>
                   )}
-                  <button type="button" onClick={() => addOption(q.id)} className="text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block">
+                  <button type="button" onClick={() => addOption(q.id)} className={`text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block ${language === 'fr' ? 'hidden' : ''}`}>
                     + Add Option
                   </button>
                 </div>
@@ -478,29 +599,29 @@ export default function CreateSurvey() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Interactive Definitions</h4>
-                  <button type="button" onClick={() => addDefinition(q.id)} className="text-xs text-[var(--color-cyc-primary)] hover:underline">
+                  <button type="button" onClick={() => addDefinition(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language === 'fr' ? 'hidden' : ''}`}>
                     + Add Definition
                   </button>
                 </div>
-                {q.definitions && q.definitions.length > 0 && (
+                {((language === 'en' ? q.definitions : (q.definitions_fr || q.definitions)) || []).length > 0 && (
                   <div className="space-y-2">
-                    {q.definitions.map((def, dIdx) => (
+                    {(language === 'en' ? (q.definitions || []) : (q.definitions_fr || q.definitions || [])).map((def, dIdx) => (
                       <div key={dIdx} className="flex items-start space-x-2">
                         <input
                           type="text"
                           value={def.term}
                           onChange={(e) => updateDefinition(q.id, dIdx, 'term', e.target.value)}
-                          placeholder="Term to bold"
-                          className="w-1/3 p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm"
+                          placeholder={language === 'fr' ? (q.definitions?.[dIdx]?.term || 'Terme') : 'Term to bold'}
+                          className={`w-1/3 p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm ${language === 'fr' ? 'border-blue-200' : ''}`}
                         />
                         <textarea
                           value={def.definition}
                           onChange={(e) => updateDefinition(q.id, dIdx, 'definition', e.target.value)}
-                          placeholder="Definition text..."
-                          className="flex-grow p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm resize-none"
+                          placeholder={language === 'fr' ? (q.definitions?.[dIdx]?.definition || 'Definition') : 'Definition text...'}
+                          className={`flex-grow p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm resize-none ${language === 'fr' ? 'border-blue-200' : ''}`}
                           rows={2}
                         />
-                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1">
+                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1 ${language === 'fr' ? 'hidden' : ''}`}>
                           &times;
                         </button>
                       </div>
@@ -513,7 +634,7 @@ export default function CreateSurvey() {
           ))}
 
           {/* Add Question Controls */}
-          <div className="bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center">
+          <div className={`bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center ${language === 'fr' ? 'hidden' : ''}`}>
             <p className="text-gray-500 dark:text-slate-500 mb-4">Add a new question to this survey</p>
             <div className="flex flex-wrap justify-center gap-3">
               <button type="button" onClick={() => addQuestion('section_header')} className="px-4 py-2 bg-yellow-50 border border-yellow-300 rounded shadow-sm hover:border-[var(--color-cyc-accent)] transition-colors text-sm font-medium text-yellow-700">
