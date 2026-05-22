@@ -341,17 +341,15 @@ CRITICAL RULES:
         try:
             translated_questions = json_module.loads(cleaned)
         except json_module.JSONDecodeError as e:
-            import re
-            match = re.search(r'\[.*\]', raw_text, re.DOTALL)
-            if match:
-                try:
-                    translated_questions = json_module.loads(match.group(0))
-                except Exception:
-                    print("JSON PARSE ERROR. RAW OUTPUT:", raw_text)
-                    raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure (Unescaped quotes likely). Please try again. Error: {str(e)}")
-            else:
-                print("JSON PARSE ERROR. RAW OUTPUT:", raw_text)
-                raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure (Unescaped quotes likely). Please try again. Error: {str(e)}")
+            # The AI generated invalid JSON (often unescaped quotes). Let's use json-repair to fix it automatically!
+            try:
+                import json_repair
+                translated_questions = json_repair.loads(raw_text)
+                if not isinstance(translated_questions, list):
+                    raise ValueError("Repaired JSON is not a list")
+            except Exception as repair_error:
+                print("JSON REPAIR FAILED. RAW OUTPUT:", raw_text)
+                raise HTTPException(status_code=500, detail=f"AI returned deeply invalid JSON structure. Repair failed: {str(repair_error)}. Original error: {str(e)}")
         
         # 4. Save to database using ai_analyses table as a generic JSON store for this survey
         existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
