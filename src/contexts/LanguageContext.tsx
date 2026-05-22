@@ -75,6 +75,7 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
   const [language, setLanguage] = useState<Language>('en');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('cyc_language') as Language;
@@ -84,8 +85,17 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   }, []);
 
   const handleSetLanguage = (lang: Language) => {
-    setLanguage(lang);
-    localStorage.setItem('cyc_language', lang);
+    if (lang === language) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setLanguage(lang);
+      localStorage.setItem('cyc_language', lang);
+      
+      // Allow react to commit the new language text, then fade back in
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }, 200);
   };
 
   const t = (key: string) => {
@@ -94,7 +104,9 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
-      {children}
+      <div className={`flex-1 flex flex-col w-full transition-opacity duration-300 ease-in-out ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+        {children}
+      </div>
     </LanguageContext.Provider>
   );
 };

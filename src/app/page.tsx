@@ -1,8 +1,53 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Clock, BarChart3, Globe, Users, Star } from 'lucide-react';
+
+function TiltCard({ item, isCompleted, t, isFront, children, className }: any) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const mouseXSpring = x;
+  const mouseYSpring = y;
+
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["7deg", "-7deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-7deg", "7deg"]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isFront) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const xPct = mouseX / width - 0.5;
+    const yPct = mouseY / height - 0.5;
+    x.set(xPct);
+    y.set(yPct);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.div
+      className={className}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        rotateX: isFront ? rotateX : 0,
+        rotateY: isFront ? rotateY : 0,
+        transformStyle: "preserve-3d",
+      }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function Home() {
@@ -193,22 +238,28 @@ export default function Home() {
                 onMouseEnter={() => handleHover(idx, STEP)}
                 onMouseLeave={handleLeave}
               >
-                <div className={`rounded-2xl border flex flex-col justify-between overflow-hidden transition-colors duration-200 bg-white h-[240px] md:h-[280px] lg:h-[340px] relative ${
-                  zI >= 15
-                    ? 'border-[#F5C518]/30 shadow-[0_15px_40px_rgba(0,0,0,0.2)]'
-                    : 'border-gray-200/60 shadow-lg'
-                }`}>
+                  <TiltCard
+                    item={item}
+                    isCompleted={isCompleted}
+                    t={t}
+                    isFront={zI >= 15}
+                    className={`rounded-2xl border flex flex-col justify-between overflow-hidden transition-colors duration-200 bg-white h-[240px] md:h-[280px] lg:h-[340px] relative ${
+                      zI >= 15
+                        ? 'border-[#F5C518]/30 shadow-[0_15px_40px_rgba(0,0,0,0.2)]'
+                        : 'border-gray-200/60 shadow-lg'
+                    }`}
+                  >
                   {item.thumbnail_url && (
-                    <div className="absolute inset-0 z-0">
-                      <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 z-0 pointer-events-none" style={{ transform: "translateZ(-10px)" }}>
+                      <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover scale-110" />
                       <div className="absolute inset-0 bg-white/85 backdrop-blur-[2px]" />
                     </div>
                   )}
-                  <div className="relative z-10 p-5 md:p-8 flex flex-col h-full justify-between">
+                  <div className="relative z-10 p-5 md:p-8 flex flex-col h-full justify-between" style={{ transform: "translateZ(30px)" }}>
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       {isCompleted && (
-                        <div className="flex items-center text-green-600 text-[10px] font-bold bg-green-50 px-2.5 py-1 rounded-full">
+                        <div className="flex items-center text-green-600 text-[10px] font-bold bg-green-50 px-2.5 py-1 rounded-full shadow-sm">
                           <CheckCircle2 className="w-3 h-3 mr-1" />{t('Completed')}
                         </div>
                       )}
@@ -216,7 +267,7 @@ export default function Home() {
                         <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
                       </span>
                     </div>
-                    <h2 className="text-xl md:text-2xl font-extrabold mb-2 leading-snug line-clamp-2 text-[#1a1a1a]">{item.title}</h2>
+                    <h2 className="text-xl md:text-2xl font-extrabold mb-2 leading-snug line-clamp-2 text-[#1a1a1a] drop-shadow-sm">{item.title}</h2>
                     <p className="text-xs md:text-sm leading-relaxed line-clamp-3 text-gray-500">
                       {item.description || 'Share your perspective on issues that matter.'}
                     </p>
@@ -232,12 +283,12 @@ export default function Home() {
                       </span>
                     ) : (
                       <Link href={`/survey/${item.id}`}
-                        className="flex items-center px-6 py-2.5 rounded-full text-sm md:text-base font-bold bg-[#F5C518] text-[#1a1a1a] hover:bg-yellow-400 shadow-sm transition-all duration-200"
+                        className="flex items-center px-6 py-2.5 rounded-full text-sm md:text-base font-bold bg-[#F5C518] text-[#1a1a1a] hover:bg-yellow-400 shadow-md hover:shadow-lg transition-all duration-200"
                       >{t('Start Survey')}<ArrowRight className="w-4 h-4 ml-2" /></Link>
                     )}
                   </div>
                 </div>
-                </div>
+                </TiltCard>
               </div>
             );
           })}

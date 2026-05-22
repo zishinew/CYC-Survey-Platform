@@ -309,7 +309,7 @@ CRITICAL RULES:
             raise HTTPException(status_code=500, detail="Google AI API key not configured")
         
         import httpx
-        GEMINI_MODEL = "gemini-1.5-flash"
+        GEMINI_MODEL = "gemini-3.5-flash"
         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GOOGLE_AI_KEY}"
         
         async with httpx.AsyncClient(timeout=90.0) as client:
@@ -810,7 +810,7 @@ async def delete_share_link(link_id: str):
 import httpx
 import json as json_module
 
-GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_MODEL = "gemini-3.5-flash"
 
 class AIAnalysisRequest(BaseModel):
     force_refresh: bool = False
