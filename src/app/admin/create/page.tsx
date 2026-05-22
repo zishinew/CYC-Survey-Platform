@@ -45,13 +45,13 @@ export default function CreateSurvey() {
   const [error, setError] = useState('');
   const [language, setLanguage] = useState<'en' | 'fr'>('en');
 
-  const getOptionsArray = (options: any) => {
+  const getOptionsArray = (options: any): string[] => {
     if (!options) return [];
-    if (Array.isArray(options)) return options;
-    return options.choices || [];
+    if (Array.isArray(options)) return options as string[];
+    return (options.choices || []) as string[];
   };
 
-  const getOptionsForDisplay = (q: QuestionDraft) => {
+  const getOptionsForDisplay = (q: QuestionDraft): string[] => {
     if (language === 'fr') {
       const frOptions = getOptionsArray(q.options_fr);
       if (frOptions.length > 0) return frOptions;
