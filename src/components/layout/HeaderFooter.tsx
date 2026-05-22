@@ -38,12 +38,30 @@ export function Header() {
             />
           </Link>
           <nav className="flex items-center space-x-6 relative">
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'fr' : language === 'fr' ? 'zh' : 'en')}
-              className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
-            >
-              {language === 'en' ? 'Français' : language === 'fr' ? '中文' : 'English'}
-            </button>
+            {language !== 'en' && (
+              <button
+                onClick={() => setLanguage('en')}
+                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
+              >
+                English
+              </button>
+            )}
+            {language !== 'fr' && (
+              <button
+                onClick={() => setLanguage('fr')}
+                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
+              >
+                Français
+              </button>
+            )}
+            {language !== 'zh' && (
+              <button
+                onClick={() => setLanguage('zh')}
+                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
+              >
+                中文
+              </button>
+            )}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="p-1 text-gray-700 hover:text-[var(--color-cyc-secondary)] transition-colors"
