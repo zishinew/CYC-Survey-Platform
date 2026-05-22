@@ -3,10 +3,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function Header() {
   const pathname = usePathname();
   const [show, setShow] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { language, setLanguage, t } = useLanguage();
 
   useEffect(() => {
     if (pathname === '/') {
@@ -32,13 +36,30 @@ export function Header() {
               priority
             />
           </Link>
-          <nav className="flex space-x-6">
-            <Link
-              href="/admin"
-              className="text-gray-700 dark:text-slate-300 hover:text-[var(--color-cyc-secondary)] dark:hover:text-white text-sm font-semibold transition-colors"
+          <nav className="flex items-center space-x-6 relative">
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
+              className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
             >
-              Admin
-            </Link>
+              {language === 'en' ? 'Français' : 'English'}
+            </button>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-1 text-gray-700 hover:text-[var(--color-cyc-secondary)] transition-colors"
+            >
+              {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+            {menuOpen && (
+              <div className="absolute top-12 right-0 w-48 bg-white border border-gray-200 rounded-xl shadow-xl flex flex-col py-2 z-50 overflow-hidden">
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-3 text-gray-700 hover:text-[var(--color-cyc-secondary)] hover:bg-gray-50 text-sm font-semibold transition-colors"
+                >
+                  {t('Admin')}
+                </Link>
+              </div>
+            )}
           </nav>
         </div>
       </div>

@@ -41,6 +41,8 @@ export default function EditSurvey() {
   const [error, setError] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [translationUploading, setTranslationUploading] = useState(false);
+  const [translationSuccess, setTranslationSuccess] = useState('');
 
   useEffect(() => {
     fetch(`/api/surveys/${params.id}`)
@@ -151,6 +153,29 @@ export default function EditSurvey() {
     const result = await uploadFile(file);
     if (result) setThumbnailUrl(result.url);
     setThumbnailUploading(false);
+  };
+
+  const handleTranslationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setTranslationUploading(true);
+    setTranslationSuccess('');
+    setError('');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`/api/surveys/${params.id}/translate-pdf`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || 'Translation parsing failed');
+      }
+      setTranslationSuccess('Successfully translated and saved French survey schema!');
+    } catch (err: any) {
+      setError(err.message || 'Translation failed');
+    } finally {
+      setTranslationUploading(false);
+    }
   };
 
   const handleAttachmentUpload = async (qId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -394,6 +419,20 @@ export default function EditSurvey() {
                   <input type="file" accept="image/*" onChange={handleThumbnailUpload} className="hidden" disabled={thumbnailUploading} />
                 </label>
               )}
+            </div>
+          </div>
+          {/* Translation Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">French Translation (PDF)</label>
+            <div className="flex items-center space-x-4">
+              <label className={`flex items-center px-4 py-2 border border-dashed rounded-lg cursor-pointer transition-colors ${translationSuccess ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-gray-50 dark:bg-slate-900/50 border-gray-300 dark:border-slate-600 hover:border-[var(--color-cyc-primary)]'}`}>
+                <FileText className={`w-4 h-4 mr-2 ${translationSuccess ? 'text-green-500' : 'text-gray-500 dark:text-slate-500'}`} />
+                <span className={`text-sm ${translationSuccess ? 'text-green-600' : 'text-gray-600 dark:text-slate-400'}`}>
+                  {translationUploading ? 'Translating via AI...' : translationSuccess ? 'Translation Active' : 'Upload French PDF'}
+                </span>
+                <input type="file" accept="application/pdf" onChange={handleTranslationUpload} className="hidden" disabled={translationUploading} />
+              </label>
+              {translationSuccess && <span className="text-xs text-green-600 font-medium">{translationSuccess}</span>}
             </div>
           </div>
           <div className="flex space-x-6">

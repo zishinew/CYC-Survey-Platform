@@ -3,8 +3,10 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Clock, BarChart3, Globe, Users, Star } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function Home() {
+  const { t } = useLanguage();
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
@@ -70,8 +72,8 @@ export default function Home() {
   while (items.length < 3) {
     items.push({
       id: `coming-soon-${items.length}`,
-      title: 'More Surveys Coming Soon',
-      description: 'We are preparing new surveys to gather your feedback. Please check back later to share your perspective!',
+      title: t('More Surveys Coming Soon'),
+      description: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
       estimated_minutes: '--',
       isComingSoon: true
     });
@@ -144,7 +146,7 @@ export default function Home() {
           animate={{ opacity: showIntro ? 0 : 1, y: showIntro ? 20 : 0 }}
           transition={{ duration: 1.0, delay: 0.3 }}
         >
-          Make Your Voice<br />Heard.
+          {t('Make Your Voice')}<br />{t('Heard.')}
         </motion.h1>
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -156,7 +158,7 @@ export default function Home() {
           <Link
             href="/surveys"
             className="inline-flex items-center bg-[#F5C518] hover:bg-yellow-400 text-[#1a1a1a] font-extrabold py-3.5 px-10 rounded-full text-base md:text-lg shadow-[0_4px_20px_rgba(245,197,24,0.4)] hover:shadow-[0_6px_25px_rgba(245,197,24,0.6)] transition-all duration-300 uppercase tracking-wider"
-          >START NOW</Link>
+          >{t('START NOW')}</Link>
         </motion.div>
       </motion.div>
 
@@ -191,20 +193,27 @@ export default function Home() {
                 onMouseEnter={() => handleHover(idx, STEP)}
                 onMouseLeave={handleLeave}
               >
-                <div className={`rounded-2xl border flex flex-col justify-between p-5 md:p-8 h-[240px] md:h-[280px] lg:h-[340px] overflow-hidden transition-colors duration-200 bg-white ${
+                <div className={`rounded-2xl border flex flex-col justify-between overflow-hidden transition-colors duration-200 bg-white h-[240px] md:h-[280px] lg:h-[340px] relative ${
                   zI >= 15
                     ? 'border-[#F5C518]/30 shadow-[0_15px_40px_rgba(0,0,0,0.2)]'
                     : 'border-gray-200/60 shadow-lg'
                 }`}>
+                  {item.thumbnail_url && (
+                    <div className="absolute inset-0 z-0">
+                      <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-white/85 backdrop-blur-[2px]" />
+                    </div>
+                  )}
+                  <div className="relative z-10 p-5 md:p-8 flex flex-col h-full justify-between">
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       {isCompleted && (
                         <div className="flex items-center text-green-600 text-[10px] font-bold bg-green-50 px-2.5 py-1 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />Completed
+                          <CheckCircle2 className="w-3 h-3 mr-1" />{t('Completed')}
                         </div>
                       )}
                       <span className="flex items-center text-[10px] text-gray-400 font-bold tracking-wide ml-auto">
-                        <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} MIN`}
+                        <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
                       </span>
                     </div>
                     <h2 className="text-xl md:text-2xl font-extrabold mb-2 leading-snug line-clamp-2 text-[#1a1a1a]">{item.title}</h2>
@@ -215,18 +224,19 @@ export default function Home() {
                   <div className="mt-auto flex items-center justify-end">
                     {item.isComingSoon ? (
                       <button disabled className="flex items-center px-6 py-2.5 rounded-full text-sm md:text-base font-bold bg-gray-100 text-gray-400 cursor-not-allowed">
-                        Coming Soon
+                        {t('Coming Soon')}
                       </button>
                     ) : isCompleted ? (
                       <span className="text-xs text-green-500 font-bold flex items-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />Done
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />{t('Done')}
                       </span>
                     ) : (
                       <Link href={`/survey/${item.id}`}
                         className="flex items-center px-6 py-2.5 rounded-full text-sm md:text-base font-bold bg-[#F5C518] text-[#1a1a1a] hover:bg-yellow-400 shadow-sm transition-all duration-200"
-                      >Start Survey<ArrowRight className="w-4 h-4 ml-2" /></Link>
+                      >{t('Start Survey')}<ArrowRight className="w-4 h-4 ml-2" /></Link>
                     )}
                   </div>
+                </div>
                 </div>
               </div>
             );

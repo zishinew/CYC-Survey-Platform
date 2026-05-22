@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Download } from 'lucide-react';
 import parse, { domToReact, Element, Text } from 'html-react-parser';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 
 const RichTextRenderer = ({ text, definitions }: { text: string; definitions?: { term: string; definition: string }[] }) => {
@@ -112,16 +113,23 @@ export default function SurveyPage() {
   }, [currentStep, inactivityTriggered, inactivityChecksShown]);
 
   useEffect(() => {
-    fetch(`/api/surveys/${params.id}`)
-      .then(res => {
-        if (!res.ok) throw new Error("Survey not found");
-        return res.json();
-      })
-      .then(data => {
+    Promise.all([
+      fetch(`/api/surveys/${params.id}`).then(r => {
+        if (!r.ok) throw new Error("Survey not found");
+        return r.json();
+      }),
+      fetch(`/api/surveys/${params.id}/translation`).then(r => r.json()).catch(() => ({ questions_fr: null }))
+    ])
+      .then(([data, translationData]) => {
         const completedSurveys = JSON.parse(localStorage.getItem('cyc_completed_surveys') || '[]');
         if (completedSurveys.includes(data.id)) {
           setAlreadyCompleted(true);
         }
+        
+        if (translationData?.questions_fr) {
+          data.questions_fr = translationData.questions_fr;
+        }
+        
         setSurvey(data);
 
         // Handle attention check injections
@@ -163,15 +171,15 @@ export default function SurveyPage() {
             
             const attn1 = {
                 id: 'attn-fixed-1',
-                type: 'multiple_choice',
-                question_text: 'When answering questions about housing and economic policy, it is important to read each statement carefully. To demonstrate that you are paying attention, please select the response option "4 (Agree)" for this specific question. \n\nHow strongly do you agree or disagree with the timeline of current federal infrastructure projects?',
+                type: 'likert_scale',
+                question_text: '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">When answering questions about housing and economic policy, it is important to read each statement carefully. To demonstrate that you are paying attention, please select the response option "4 (Agree)" for this specific question.</span>How strongly do you agree or disagree with the timeline of current federal infrastructure projects?',
                 is_required: true,
-                options: { choices: ["1 (Strongly disagree)", "2 (Disagree)", "3 (Neutral)", "4 (Agree)", "5 (Strongly agree)"] }
+                options: {}
             };
             const attn2 = {
                 id: 'attn-fixed-2',
                 type: 'multiple_choice',
-                question_text: 'To ensure our data quality standards are met for this study, please answer the following straightforward statement: \n\n"The government of Canada has officially dissolved the country\'s currency and banned the exchange of all goods and services."',
+                question_text: '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">To ensure our data quality standards are met for this study, please answer the following straightforward statement:</span>"The government of Canada has officially dissolved the country\'s currency and banned the exchange of all goods and services."',
                 is_required: true,
                 options: { choices: ["True", "False"] }
             };
@@ -264,7 +272,35 @@ export default function SurveyPage() {
   // --- Derived State (Must be before early returns for hooks) ---
   const totalSteps = survey ? survey.questions.length + 1 : 0;
   const isEmailStep = survey ? currentStep === survey.questions.length : false;
-  const currentQuestion = survey && !isEmailStep ? survey.questions[currentStep] : null;
+  
+  const currentQuestionRaw = survey && !isEmailStep ? survey.questions[currentStep] : null;
+  const currentQuestion = useMemo(() => {
+    if (!currentQuestionRaw) return null;
+    let finalQ = { ...currentQuestionRaw };
+    
+    if (language === 'fr' && survey?.questions_fr) {
+      const frQ = survey.questions_fr.find((q: any) => q.id === finalQ.id);
+      if (frQ) {
+        finalQ.question_text = frQ.question_text;
+        finalQ.options = frQ.options;
+      }
+    }
+    
+    // Manually translate injected attention checks
+    if (language === 'fr' && finalQ.id.startsWith('attn-')) {
+      if (finalQ.id === 'attn-fixed-1') {
+        finalQ.question_text = '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">Lorsque vous répondez à des questions sur la politique économique, il est important de lire attentivement chaque énoncé. Pour démontrer que vous êtes attentif, veuillez sélectionner l\'option de réponse "4" pour cette question spécifique.</span>Dans quelle mesure êtes-vous d\'accord ou en désaccord avec le calendrier des projets d\'infrastructure fédéraux actuels ?';
+      } else if (finalQ.id === 'attn-fixed-2') {
+        finalQ.question_text = '<span class="text-sm md:text-base font-normal text-gray-500 dark:text-slate-400 block mb-4">Pour nous assurer que nos normes de qualité des données sont respectées, veuillez répondre à cet énoncé :</span>"Le gouvernement du Canada a officiellement dissous la monnaie du pays et interdit l\'échange de tous biens et services."';
+        finalQ.options = { choices: ["Vrai", "Faux"] };
+      } else if (finalQ.id === 'attn-inact-1') {
+        finalQ.question_text = 'Êtes-vous toujours là ? Veuillez sélectionner "Oui" pour continuer.';
+        finalQ.options = { choices: ["Non", "Oui", "Peut-être"] };
+      }
+    }
+    return finalQ;
+  }, [currentQuestionRaw, language, survey]);
+
   const progress = survey && totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
 
   // Helper to shuffle array (Fisher-Yates)
@@ -398,7 +434,7 @@ export default function SurveyPage() {
       if (currentQuestion.id.startsWith('attn-')) {
         const val = answers[currentQuestion.id];
         let passed = false;
-        if (currentQuestion.id === 'attn-fixed-1' && val === '4 (Agree)') passed = true;
+        if (currentQuestion.id === 'attn-fixed-1' && val === 4) passed = true;
         if (currentQuestion.id === 'attn-fixed-2' && val === 'False') passed = true;
         if (currentQuestion.id === 'attn-inact-1' && val === 'Yes') passed = true;
         
@@ -553,7 +589,7 @@ export default function SurveyPage() {
           <motion.div className="bg-[var(--color-cyc-primary)] h-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
         </div>
         <p className="text-xs sm:text-sm font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mt-3">
-          {isEmailStep ? 'Almost Done!' : (currentQuestion?.type === 'section_header' ? 'Information' : `Question ${currentStep + 1} of ${survey.questions.length}`)}
+          {isEmailStep ? t('Almost Done!') : (currentQuestion?.type === 'section_header' ? t('Information') : `${t('Question')} ${currentStep + 1} ${t('of')} ${survey.questions.length}`)}
         </p>
       </motion.div>
 
@@ -566,7 +602,7 @@ export default function SurveyPage() {
             {isEmailStep && (
               <>
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8 text-[var(--color-cyc-secondary)] dark:text-slate-100 text-center leading-snug pt-4">
-                  What is your email address?
+                  {t('What is your email address?')}
                 </h2>
                 <input
                   type="email"
@@ -576,9 +612,14 @@ export default function SurveyPage() {
                   className="w-full p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all text-base sm:text-lg text-center"
                   placeholder="you@example.com"
                 />
-                <p className="text-xs sm:text-sm text-gray-400 dark:text-slate-500 text-center mt-4 px-2 max-w-lg mx-auto leading-relaxed">
-                  Your email address is being collected only to contact you when the second and third questionnaires are released. Email addresses will remain confidential and will not be shared publicly or used for unrelated purposes.
-                </p>
+                <div className="text-center mt-5 px-2 max-w-xl mx-auto space-y-2">
+                  <p className="text-sm sm:text-base font-medium text-gray-500 dark:text-slate-400 leading-snug">
+                    {t('A valid email address is required to enter the raffle and to contact participants when the second and third questionnaires are released.')}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 leading-relaxed">
+                    {t('Email addresses will remain confidential and will not be shared publicly or used for purposes unrelated to the survey series or raffle administration.')}
+                  </p>
+                </div>
               </>
             )}
 
@@ -809,11 +850,11 @@ export default function SurveyPage() {
                 <div className="flex-shrink-0 flex justify-between items-center mt-auto pt-6 border-t border-gray-100 dark:border-white/5 bg-transparent">
                   <button onClick={handleBack} disabled={currentStep === 0}
                     className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-medium transition-all ${currentStep === 0 ? 'text-gray-300 dark:text-slate-600 cursor-not-allowed' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-100 hover:text-gray-900'}`}>
-                    Back
+                    {t('Back')}
                   </button>
                   <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleNext} disabled={submitting}
                     className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl flex items-center text-base sm:text-lg font-bold shadow-md shadow-teal-500/5 dark:shadow-teal-400/5 hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                    {submitting ? 'Submitting...' : (currentStep === totalSteps - 1 ? 'Finish Survey' : (isEmailStep ? 'Next' : (currentQuestion?.type === 'section_header' ? 'Continue' : 'Next')))}
+                    {submitting ? t('Submitting...') : (currentStep === totalSteps - 1 ? t('Finish Survey') : (isEmailStep ? t('Next') : (currentQuestion?.type === 'section_header' ? t('Continue') : t('Next'))))}
                     {!submitting && currentStep !== totalSteps - 1 && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
                     {!submitting && currentStep === totalSteps - 1 && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
                   </motion.button>
