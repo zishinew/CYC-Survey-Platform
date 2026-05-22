@@ -48,6 +48,7 @@ export default function EditSurvey() {
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [language, setLanguage] = useState<'en' | 'fr'>('en');
+  const [isLocked, setIsLocked] = useState(false);
   useEffect(() => {
     Promise.all([
       fetch(`/api/surveys/${params.id}`).then(res => {
@@ -57,11 +58,7 @@ export default function EditSurvey() {
       fetch(`/api/surveys/${params.id}/translation`).then(res => res.ok ? res.json() : { questions_fr: null })
     ])
       .then(([data, transData]) => {
-        if (data.is_active) {
-          setError("Cannot edit an active survey. Please go back.");
-          setLoading(false);
-          return;
-        }
+        setIsLocked(data.has_been_published || data.is_active);
         setTitle(data.title);
         setDescription(data.description || '');
         setDescriptionAlignment(data.description_alignment || 'left');
@@ -346,22 +343,25 @@ export default function EditSurvey() {
         })
       };
 
-      const res = await fetch(`/api/surveys/${params.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      let updatedSurvey = null;
+      if (!isLocked) {
+        const res = await fetch(`/api/surveys/${params.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || 'Failed to update survey');
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || 'Failed to update survey');
+        }
+        updatedSurvey = await res.json();
       }
-      const updatedSurvey = await res.json();
 
       // Also generate and save French translation payload
       const payload_fr = payload.questions.map((q, idx) => {
         const draftQ = questions[idx];
-        const updatedQ = updatedSurvey.questions?.[idx];
+        const updatedQ = isLocked ? draftQ : updatedSurvey.questions?.[idx];
         let optionsFr: any = null;
         if (q.type === 'multiple_choice' || q.type === 'dropdown') {
           optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
@@ -412,14 +412,7 @@ export default function EditSurvey() {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-cyc-primary)]"></div></div>;
   }
 
-  if (error && error.includes("Cannot edit an active survey")) {
-    return (
-      <div className="max-w-4xl mx-auto py-20 text-center">
-        <h1 className="text-3xl font-bold text-red-600 mb-6">{error}</h1>
-        <Link href="/admin" className="btn-primary">Return to Dashboard</Link>
-      </div>
-    );
-  }
+
 
   return (
     <div className="max-w-4xl mx-auto py-8">
@@ -453,6 +446,12 @@ export default function EditSurvey() {
           {error}
         </div>
       )}
+      
+      {isLocked && language === 'en' && (
+        <div className="bg-yellow-50 text-yellow-800 p-4 rounded mb-6 border border-yellow-200">
+          <strong>This survey is locked.</strong> Because it is active or has been published, its English structure cannot be modified. You can view its contents, or switch to Français to edit translations.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="card space-y-4">
@@ -468,6 +467,7 @@ export default function EditSurvey() {
               required={language === 'en'}
               value={language === 'en' ? title : titleFr}
               onChange={(e) => language === 'en' ? setTitle(e.target.value) : setTitleFr(e.target.value)}
+              disabled={isLocked && language === 'en'}
               className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
               placeholder={language === 'fr' ? "Titre en francais" : "Survey Title"}
             />
@@ -477,7 +477,7 @@ export default function EditSurvey() {
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Description (Optional)</label>
               <div className="flex items-center space-x-2">
                 <label className="text-xs text-gray-500 dark:text-slate-500">Alignment:</label>
-                <select value={descriptionAlignment} onChange={(e) => setDescriptionAlignment(e.target.value)} className="text-xs border rounded p-1 focus:outline-none">
+                <select value={descriptionAlignment} onChange={(e) => setDescriptionAlignment(e.target.value)} disabled={isLocked} className="text-xs border rounded p-1 focus:outline-none">
                   <option value="left">Left</option>
                   <option value="center">Center</option>
                   <option value="justify">Justify</option>
@@ -492,6 +492,7 @@ export default function EditSurvey() {
             <textarea
               value={language === 'en' ? description : descriptionFr}
               onChange={(e) => language === 'en' ? setDescription(e.target.value) : setDescriptionFr(e.target.value)}
+              disabled={isLocked && language === 'en'}
               className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:border-transparent transition-all"
               rows={4}
               placeholder={language === 'fr' ? "De quoi s'agit-il?" : "What is this survey about?"}
@@ -525,6 +526,7 @@ export default function EditSurvey() {
                 min={1}
                 value={estimatedMinutes}
                 onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
+                disabled={isLocked}
                 className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
               />
             </div>
@@ -534,6 +536,7 @@ export default function EditSurvey() {
                   type="checkbox"
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
+                  disabled={isLocked}
                   className="mr-2 h-5 w-5 text-[var(--color-cyc-primary)]"
                 />
                 <span className="font-medium text-gray-700 dark:text-slate-300">Set as Active</span>
@@ -558,7 +561,7 @@ export default function EditSurvey() {
             const optionsArray = getOptionsForDisplay(q);
             return (
               <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
-                <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language === 'fr' ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
+                <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language === 'fr' || isLocked ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
                   <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 dark:text-slate-500 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                   </button>
@@ -583,13 +586,14 @@ export default function EditSurvey() {
                       required={language === 'en'}
                       value={language === 'en' ? q.question_text : (q.question_text_fr || '')}
                       onChange={(e) => updateQuestion(q.id, language === 'en' ? 'question_text' : 'question_text_fr', e.target.value)}
+                      disabled={isLocked && language === 'en'}
                       placeholder={language === 'fr' ? "Traduction française" : "Question Text"}
                       className="w-full p-2 border rounded font-medium focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
                     />
                   </div>
                 </div>
 
-                <div className={`flex items-center space-x-4 mb-4 text-sm text-gray-600 dark:text-slate-400 ${language === 'fr' ? 'hidden' : ''}`}>
+                <div className={`flex items-center space-x-4 mb-4 text-sm text-gray-600 dark:text-slate-400 ${language === 'fr' || isLocked ? 'hidden' : ''}`}>
                   
                   <div className="flex items-center gap-4">
                   <label className="flex items-center cursor-pointer text-sm text-gray-600 dark:text-slate-400">
@@ -662,17 +666,17 @@ export default function EditSurvey() {
                           onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                           className={`flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent ${language === 'fr' ? 'border-blue-200 focus:border-blue-500' : ''}`}
                         />
-                        <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'} ${language === 'fr' ? 'hidden' : ''}`} title="Lock Option Position">
+                        <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'} ${language === 'fr' || isLocked ? 'hidden' : ''}`} title="Lock Option Position">
                           {(q.locked_choices || []).includes(opt) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                         </button>
                         {optionsArray.length > 1 && (
-                          <button type="button" onClick={() => removeOption(q.id, oIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 ${language === 'fr' ? 'hidden' : ''}`}>
+                          <button type="button" onClick={() => removeOption(q.id, oIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 ${language === 'fr' || isLocked ? 'hidden' : ''}`}>
                             &times;
                           </button>
                         )}
                       </div>
                     ))}
-                    <button type="button" onClick={() => addOption(q.id)} className={`text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block ${language === 'fr' ? 'hidden' : ''}`}>
+                    <button type="button" onClick={() => addOption(q.id)} className={`text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block ${language === 'fr' || isLocked ? 'hidden' : ''}`}>
                       + Add Option
                     </button>
                   </div>
@@ -696,10 +700,11 @@ export default function EditSurvey() {
                       <RichTextEditor
                         value={language === 'en' ? (q.section_description || '') : (q.section_description_fr || '')}
                         onChange={(val) => updateQuestion(q.id, language === 'en' ? 'section_description' : 'section_description_fr', val)}
+                        readOnly={isLocked && language === 'en'}
                         placeholder={language === 'en' ? "Provide context or instructions before the next set of questions..." : "Traduction française du contexte..."}
                       />
                     </div>
-                    <div className={language === 'fr' ? 'hidden' : ''}>
+                    <div className={language === 'fr' || isLocked ? 'hidden' : ''}>
                       <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 mb-1">Attachments</label>
                       {(q.attachments || []).map((att, aIdx) => (
                         <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white dark:bg-slate-800 p-2 rounded border text-sm">
@@ -721,7 +726,7 @@ export default function EditSurvey() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Interactive Definitions</h4>
-                  <button type="button" onClick={() => addDefinition(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language === 'fr' ? 'hidden' : ''}`}>
+                  <button type="button" onClick={() => addDefinition(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language === 'fr' || isLocked ? 'hidden' : ''}`}>
                     + Add Definition
                   </button>
                 </div>
@@ -747,7 +752,7 @@ export default function EditSurvey() {
                             className={`w-full p-1.5 text-sm border rounded focus:ring-1 focus:ring-[var(--color-cyc-primary)] focus:outline-none resize-none ${language === 'fr' ? 'border-blue-200' : ''}`}
                           />
                         </div>
-                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`p-1.5 text-gray-400 hover:text-red-500 ${language === 'fr' ? 'hidden' : ''}`}>
+                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`p-1.5 text-gray-400 hover:text-red-500 ${language === 'fr' || isLocked ? 'hidden' : ''}`}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -760,7 +765,7 @@ export default function EditSurvey() {
             );
           })}
 
-          <div className={`bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center ${language === 'fr' ? 'hidden' : ''}`}>
+          <div className={`bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center ${language === 'fr' || isLocked ? 'hidden' : ''}`}>
             <p className="text-gray-500 dark:text-slate-500 mb-4">Add a new question to this survey</p>
             <div className="flex flex-wrap justify-center gap-3">
               <button type="button" onClick={() => addQuestion('section_header')} className="px-4 py-2 bg-yellow-50 border border-yellow-300 rounded shadow-sm hover:border-[var(--color-cyc-accent)] transition-colors text-sm font-medium text-yellow-700">

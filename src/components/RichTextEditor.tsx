@@ -13,11 +13,13 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  readOnly?: boolean;
 }
 
-export const RichTextEditor = ({ value, onChange, placeholder, className = '' }: RichTextEditorProps) => {
+export const RichTextEditor = ({ value, onChange, placeholder, className = '', readOnly = false }: RichTextEditorProps) => {
   const [showColors, setShowColors] = useState(false);
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         heading: false,
@@ -36,7 +38,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
     content: value,
     editorProps: {
       attributes: {
-        class: `prose prose-sm focus:outline-none min-h-[40px] px-3 py-2 text-sm max-w-none ${className}`,
+        class: `prose prose-sm focus:outline-none min-h-[40px] px-3 py-2 text-sm max-w-none ${className} ${readOnly ? 'opacity-70 cursor-not-allowed bg-gray-50 dark:bg-slate-800' : ''}`,
       },
     },
     onUpdate: ({ editor }) => {
@@ -57,8 +59,9 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
   }
 
   return (
-    <div className="border border-gray-300 dark:border-slate-600 rounded-md overflow-hidden bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-[var(--color-cyc-primary)] focus-within:border-transparent transition-all">
+    <div className={`border border-gray-300 dark:border-slate-600 rounded-md overflow-hidden bg-white dark:bg-slate-800 transition-all ${readOnly ? 'opacity-70 cursor-not-allowed' : 'focus-within:ring-2 focus-within:ring-[var(--color-cyc-primary)] focus-within:border-transparent'}`}>
       {/* Toolbar */}
+      {!readOnly && (
       <div className="flex flex-wrap items-center gap-1 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 p-1">
         <button
           type="button"
@@ -145,6 +148,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
           )}
         </div>
       </div>
+      )}
       
       {/* Editor Area */}
       <div className="relative">
