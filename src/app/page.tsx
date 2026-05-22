@@ -165,6 +165,27 @@ export default function Home() {
       <motion.div className="absolute bottom-[30%] left-[8%] w-6 h-6 rounded-full bg-[#0CB7C4] opacity-30 blur-[1.5px] hidden md:block z-0" initial={{ opacity: 0 }} animate={{ opacity: showIntro ? 0 : 0.3 }} transition={{ duration: 1.2, delay: 0.6 }} />
       <motion.div className="absolute top-[65%] left-[22%] w-8 h-8 rounded-full border-[3px] border-[#F5C518] opacity-25 blur-[2px] hidden md:block z-0 scale-75" initial={{ opacity: 0 }} animate={{ opacity: showIntro ? 0 : 0.25 }} transition={{ duration: 1.2, delay: 0.7 }} />
 
+      {/* Raffle Info Floating Box */}
+      <motion.div
+        className="absolute top-[25%] right-[5%] lg:right-[8%] z-30 hidden md:flex flex-col items-center bg-white border border-gray-100 shadow-[0_15px_40px_rgba(4,55,126,0.12)] rounded-2xl py-3 px-5 rotate-[4deg]"
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: showIntro ? 0 : 1, scale: showIntro ? 0 : 1, y: [0, -8, 0] }}
+        transition={{ 
+          opacity: { duration: 1.0, delay: 0.9 },
+          scale: { duration: 1.0, delay: 0.9, ease: "easeOut" },
+          y: { duration: 4, repeat: Infinity, delay: 0, ease: "easeInOut" }
+        }}
+      >
+        <div className="flex items-center justify-center bg-[#e6f8f9] rounded-full px-3 py-1 mb-1 border border-[#0CB7C4]/20">
+          <span className="text-[10px] font-black uppercase text-[#0CB7C4] tracking-widest">
+            {t('1 Survey = 1 Entry')}
+          </span>
+        </div>
+        <span className="text-sm font-extrabold text-[#04377E]">
+          {t('Win $100 (5 Winners!)')}
+        </span>
+      </motion.div>
+
       {/* Hero Section */}
       <motion.div
         className="w-full max-w-4xl mx-auto flex flex-col items-center text-center z-40 mt-6 md:mt-10"
@@ -267,8 +288,8 @@ export default function Home() {
                         <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
                       </span>
                     </div>
-                    <h2 className="text-xl md:text-2xl font-extrabold mb-2 leading-snug line-clamp-2 text-[#1a1a1a] drop-shadow-sm">{item.title}</h2>
-                    <p className="text-xs md:text-sm leading-relaxed line-clamp-3 text-gray-500">
+                    <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.title}</h2>
+                    <p className="text-sm md:text-base leading-relaxed line-clamp-4 text-gray-500">
                       {item.description || 'Share your perspective on issues that matter.'}
                     </p>
                   </div>

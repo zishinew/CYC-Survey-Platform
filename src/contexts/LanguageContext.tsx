@@ -37,6 +37,8 @@ const translations: Record<Language, Record<string, string>> = {
     'MIN': 'MIN',
     'Make Your Voice': 'Make Your Voice',
     'Heard.': 'Heard.',
+    '1 Survey = 1 Entry': '1 Survey = 1 Entry',
+    'Win $100 (5 Winners!)': 'Win $100 (5 Winners!)',
   },
   fr: {
     'Admin': 'Administrateur',
@@ -64,6 +66,8 @@ const translations: Record<Language, Record<string, string>> = {
     'MIN': 'MIN',
     'Make Your Voice': 'Faites entendre',
     'Heard.': 'votre voix.',
+    '1 Survey = 1 Entry': '1 Sondage = 1 Participation',
+    'Win $100 (5 Winners!)': 'Gagnez 100$ (5 Gagnants!)',
   }
 };
 
