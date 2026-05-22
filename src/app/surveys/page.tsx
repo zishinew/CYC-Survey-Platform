@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Clock, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function SurveysPage() {
+  const { language } = useLanguage();
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
@@ -14,7 +16,24 @@ export default function SurveysPage() {
     setCompletedIds(c);
     fetch('/api/surveys')
       .then(r => r.json())
-      .then(d => { setSurveys(d); setLoading(false); })
+      .then(async (d) => {
+        const withTranslations = await Promise.all(
+          d.map(async (survey: any) => {
+            try {
+              const tr = await fetch(`/api/surveys/${survey.id}/translation`).then(res => res.json());
+              return {
+                ...survey,
+                title_fr: tr?.title_fr,
+                description_fr: tr?.description_fr
+              };
+            } catch {
+              return survey;
+            }
+          })
+        );
+        setSurveys(withTranslations);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
@@ -39,6 +58,8 @@ export default function SurveysPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
         {surveys.map((item, idx) => {
           const isCompleted = completedIds.includes(item.id);
+          const displayTitle = language === 'fr' && item.title_fr ? item.title_fr : item.title;
+          const displayDescription = language === 'fr' && item.description_fr ? item.description_fr : item.description;
           return (
             <motion.div 
               key={item.id} 
@@ -47,8 +68,8 @@ export default function SurveysPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 + idx * 0.1, ease: "easeOut" }}
             >
-              <h2 className="text-xl font-extrabold text-[#04377E] mb-3 leading-snug">{item.title}</h2>
-              <p className="text-sm text-slate-500 mb-8 flex-1 leading-relaxed">{item.description || 'Share your perspective on issues that matter.'}</p>
+              <h2 className="text-xl font-extrabold text-[#04377E] mb-3 leading-snug">{displayTitle}</h2>
+              <p className="text-sm text-slate-500 mb-8 flex-1 leading-relaxed">{displayDescription || 'Share your perspective on issues that matter.'}</p>
               
               <div className="flex items-center justify-between mt-auto pt-2">
                 <span className="flex items-center text-xs text-slate-400 font-semibold tracking-wide">

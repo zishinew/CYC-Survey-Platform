@@ -288,9 +288,9 @@ export default function Home() {
                         <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
                       </span>
                     </div>
-                    <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.title}</h2>
+                    <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.displayTitle}</h2>
                     <p className="text-sm md:text-base leading-relaxed line-clamp-4 text-gray-500">
-                      {item.description || 'Share your perspective on issues that matter.'}
+                      {item.displayDescription || 'Share your perspective on issues that matter.'}
                     </p>
                   </div>
                   <div className="mt-auto flex items-center justify-end">
