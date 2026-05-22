@@ -356,10 +356,12 @@ export default function EditSurvey() {
         const errorData = await res.json();
         throw new Error(errorData.detail || 'Failed to update survey');
       }
+      const updatedSurvey = await res.json();
 
       // Also generate and save French translation payload
       const payload_fr = payload.questions.map((q, idx) => {
         const draftQ = questions[idx];
+        const updatedQ = updatedSurvey.questions?.[idx];
         let optionsFr: any = null;
         if (q.type === 'multiple_choice' || q.type === 'dropdown') {
           optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
@@ -375,25 +377,28 @@ export default function EditSurvey() {
           optionsFr.definitions = draftQ.definitions_fr;
         }
         return {
-          id: draftQ.id,
+          id: updatedQ?.id,
           ...q,
           question_text: draftQ.question_text_fr || draftQ.question_text || '',
           options: optionsFr
         };
       });
 
-      const resFr = await fetch(`/api/surveys/${params.id}/translation`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questions_fr: payload_fr,
-          title_fr: titleFr || '',
-          description_fr: descriptionFr || ''
-        })
-      });
+      const filteredPayloadFr = payload_fr.filter((q: any) => q.id);
+      if (filteredPayloadFr.length > 0) {
+        const resFr = await fetch(`/api/surveys/${params.id}/translation`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questions_fr: filteredPayloadFr,
+            title_fr: titleFr || '',
+            description_fr: descriptionFr || ''
+          })
+        });
 
-      if (!resFr.ok) {
-        throw new Error('Failed to save French translations');
+        if (!resFr.ok) {
+          throw new Error('Failed to save French translations');
+        }
       }
 
       router.push('/admin');
