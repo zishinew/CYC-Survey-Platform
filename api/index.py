@@ -270,12 +270,17 @@ async def translate_pdf(survey_id: str, file: UploadFile = File(...)):
     try:
         # 1. Extract text from PDF
         pdf_bytes = await file.read()
-        pdf_text = ""
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    pdf_text += text + "\n"
+        import asyncio
+        def extract_pdf():
+            text_out = ""
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text()
+                    if text:
+                        text_out += text + "\n"
+            return text_out
+            
+        pdf_text = await asyncio.to_thread(extract_pdf)
         
         # 2. Get English survey questions
         questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
