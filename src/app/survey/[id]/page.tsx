@@ -28,7 +28,7 @@ const RichTextRenderer = ({ text, definitions }: { text: string; definitions?: {
               if (def) {
                 return (
                   <span key={i} className="relative inline-block group cursor-help mx-1">
-                    <span className="animated-wavy-underline">{part}</span>
+                    <span className="wavy-underline">{part}</span>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm rounded-lg shadow-xl z-50 text-center font-normal tracking-normal leading-normal">
                       {def.definition}
                       <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-slate-100"></span>
@@ -283,7 +283,7 @@ export default function SurveyPage() {
         }
       }
     }
-  }, [answers, sessionId, currentStep, survey]);
+  }, [answers, sessionId, currentStep, survey, questionEnterTime, timeSpentAccumulator]);
 
   // --- Derived State (Must be before early returns for hooks) ---
   const totalSteps = survey ? survey.questions.length + 1 : 0;
@@ -292,7 +292,7 @@ export default function SurveyPage() {
   const currentQuestionRaw = survey && !isEmailStep ? survey.questions[currentStep] : null;
   const currentQuestion = useMemo(() => {
     if (!currentQuestionRaw) return null;
-    let finalQ = { ...currentQuestionRaw };
+    const finalQ = { ...currentQuestionRaw };
     
     if (language === 'fr' && survey?.questions_fr) {
       const frQ = survey.questions_fr.find((q: any) => q.id === finalQ.id);
@@ -341,7 +341,7 @@ export default function SurveyPage() {
   const shuffleArray = (array: string[]) => {
     const arr = [...array];
     for (let i = arr.length - 1; i > 0; i--) {
-      // eslint-disable-next-line react-hooks/purity
+       
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
@@ -349,7 +349,7 @@ export default function SurveyPage() {
   };
 
   // Helper to get options config
-  const getOpts = (q: any) => {
+  function getOpts(q: any) {
     if (!q?.options) return { choices: [], has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left', definitions: [] };
     if (Array.isArray(q.options)) return { choices: q.options, has_other: false, max_selections: undefined, has_calculator: false, description: '', attachments: [], randomize_options: false, locked_choices: [], description_alignment: 'left', definitions: [] };
     return {
@@ -453,7 +453,7 @@ export default function SurveyPage() {
     return next;
   };
 
-  const handleNext = async () => {
+  async function handleNext() {
     if (isEmailStep) {
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         alert(t('Please enter a valid email address.'));
@@ -507,6 +507,7 @@ export default function SurveyPage() {
       setTimeSpentAccumulator((prev: any) => ({ ...prev, [qId]: (prev[qId] || 0) + (Date.now() - questionEnterTime) }));
       
       const nextStep = getNextVisibleStep(currentStep + 1, true);
+       
       setQuestionEnterTime(Date.now());
       setCurrentStep(nextStep);
     }

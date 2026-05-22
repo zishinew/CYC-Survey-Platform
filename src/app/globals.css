@@ -26,8 +26,8 @@
 .card {
   @apply bg-white rounded-xl shadow-md border border-[var(--color-cyc-divider)] p-6 hover:shadow-lg transition-shadow;
 }
-/* Custom animated squiggly underline for interactive definitions */
-.animated-wavy-underline {
+/* Custom static squiggly underline for interactive definitions */
+.wavy-underline {
   text-decoration: none;
   font-weight: 700;
   color: var(--color-cyc-secondary); /* Dark blue for emphasis */
@@ -36,10 +36,4 @@
   background-position: 0 100%;
   background-size: 12px 4px;
   padding-bottom: 4px; /* Push the squiggly line down below descenders */
-  animation: squiggle-wave 1s linear infinite;
-}
-
-@keyframes squiggle-wave {
-  0% { background-position: 0px 100%; }
-  100% { background-position: 12px 100%; }
 }

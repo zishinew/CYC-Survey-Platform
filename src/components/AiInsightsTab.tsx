@@ -261,7 +261,7 @@ export default function AiInsightsTab({ surveyId, totalRespondents }: { surveyId
                       <div key={i} className="flex gap-3 p-3 rounded-lg border border-amber-100 bg-amber-50/50">
                         <div className="flex-1">
                           <h4 className="text-sm font-bold text-[var(--color-cyc-secondary)] mb-1">{sc.connection}</h4>
-                          <p className="text-xs text-amber-800 mb-1"><span className="font-semibold">Why it's surprising:</span> {sc.why_surprising}</p>
+                          <p className="text-xs text-amber-800 mb-1"><span className="font-semibold">Why it&apos;s surprising:</span> {sc.why_surprising}</p>
                           <p className="text-[10px] text-gray-500 italic">Evidence: {sc.evidence}</p>
                         </div>
                       </div>
@@ -293,7 +293,7 @@ export default function AiInsightsTab({ surveyId, totalRespondents }: { surveyId
                       </div>
                       <div className="bg-gray-50 p-3 rounded text-xs text-gray-600 border border-gray-100">
                         <p className="mb-1"><span className="font-semibold text-[var(--color-cyc-secondary)]">Why it matters:</span> {ac.why_it_matters}</p>
-                        <p className="italic opacity-80 mt-2">"{ac.evidence}"</p>
+                        <p className="italic opacity-80 mt-2">&quot;{ac.evidence}&quot;</p>
                       </div>
                     </div>
                   ))}
