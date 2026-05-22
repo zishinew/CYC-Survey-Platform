@@ -58,8 +58,8 @@ export default function SurveysPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
         {surveys.map((item, idx) => {
           const isCompleted = completedIds.includes(item.id);
-          const displayTitle = language === 'fr' && item.title_fr ? item.title_fr : item.title;
-          const displayDescription = language === 'fr' && item.description_fr ? item.description_fr : item.description;
+          const displayTitle = (language === 'fr' && item.title_fr ? item.title_fr : item.title) || item.title;
+          const displayDescription = (language === 'fr' && item.description_fr ? item.description_fr : item.description) || item.description;
           return (
             <motion.div 
               key={item.id} 

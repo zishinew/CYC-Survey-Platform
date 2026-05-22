@@ -73,7 +73,24 @@ export default function Home() {
     setCompletedIds(c);
     fetch('/api/surveys')
       .then(r => r.json())
-      .then(d => { setSurveys(d); setLoading(false); })
+      .then(async (d) => {
+        const withTranslations = await Promise.all(
+          d.map(async (survey: any) => {
+            try {
+              const tr = await fetch(`/api/surveys/${survey.id}/translation`).then(res => res.json());
+              return {
+                ...survey,
+                title_fr: tr?.title_fr,
+                description_fr: tr?.description_fr
+              };
+            } catch {
+              return survey;
+            }
+          })
+        );
+        setSurveys(withTranslations);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
@@ -112,13 +129,19 @@ export default function Home() {
     </div>
   );
 
-  const baseItems = surveys.slice(0, 3);
+  const baseItems = surveys.slice(0, 3).map((item) => {
+    const displayTitle = (language === 'fr' && item.title_fr ? item.title_fr : item.title) || item.title;
+    const displayDescription = (language === 'fr' && item.description_fr ? item.description_fr : item.description) || item.description;
+    return { ...item, displayTitle, displayDescription };
+  });
   const items = [...baseItems];
   while (items.length < 3) {
     items.push({
       id: `coming-soon-${items.length}`,
       title: t('More Surveys Coming Soon'),
       description: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
+      displayTitle: t('More Surveys Coming Soon'),
+      displayDescription: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
       estimated_minutes: '--',
       isComingSoon: true
     });
@@ -288,9 +311,9 @@ export default function Home() {
                         <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
                       </span>
                     </div>
-                    <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.displayTitle}</h2>
+                    <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.displayTitle || item.title}</h2>
                     <p className="text-sm md:text-base leading-relaxed line-clamp-4 text-gray-500">
-                      {item.displayDescription || 'Share your perspective on issues that matter.'}
+                      {item.displayDescription || item.description || 'Share your perspective on issues that matter.'}
                     </p>
                   </div>
                   <div className="mt-auto flex items-center justify-end">
