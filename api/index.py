@@ -295,7 +295,8 @@ CRITICAL RULES:
 3. Keep the 'id' and 'type' values identical to the original English version.
 4. Translate 'question_text' to French.
 5. If 'options.choices' exists, translate all choices to French. Maintain the exact same number of choices in the exact same order.
-6. Return ONLY the valid JSON array.
+6. YOU MUST properly escape all double quotes (\") inside your French translations to ensure valid JSON syntax.
+7. Return ONLY the valid JSON array.
 
 --- ENGLISH JSON ARRAY ---
 {english_questions_json}
@@ -346,9 +347,11 @@ CRITICAL RULES:
                 try:
                     translated_questions = json_module.loads(match.group(0))
                 except Exception:
-                    raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure. Please try again. Error: {str(e)}")
+                    print("JSON PARSE ERROR. RAW OUTPUT:", raw_text)
+                    raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure (Unescaped quotes likely). Please try again. Error: {str(e)}")
             else:
-                raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure. Please try again. Error: {str(e)}")
+                print("JSON PARSE ERROR. RAW OUTPUT:", raw_text)
+                raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure (Unescaped quotes likely). Please try again. Error: {str(e)}")
         
         # 4. Save to database using ai_analyses table as a generic JSON store for this survey
         existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
