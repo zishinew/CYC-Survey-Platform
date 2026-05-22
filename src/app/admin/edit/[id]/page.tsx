@@ -35,7 +35,9 @@ export default function EditSurvey() {
   
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
+  const [titleFr, setTitleFr] = useState('');
   const [description, setDescription] = useState('');
+  const [descriptionFr, setDescriptionFr] = useState('');
   const [descriptionAlignment, setDescriptionAlignment] = useState('left');
   const [estimatedMinutes, setEstimatedMinutes] = useState(5);
   const [isActive, setIsActive] = useState(false);
@@ -66,7 +68,10 @@ export default function EditSurvey() {
         setEstimatedMinutes(data.estimated_minutes);
         setIsActive(data.is_active);
         setThumbnailUrl(data.thumbnail_url || '');
-        
+
+        setTitleFr(transData?.title_fr || '');
+        setDescriptionFr(transData?.description_fr || '');
+
         const frQuestions = transData.questions_fr || [];
         
         // Map questions
@@ -114,6 +119,15 @@ export default function EditSurvey() {
     return options.choices || [];
   };
 
+  const getOptionsForDisplay = (q: QuestionDraft) => {
+    if (language === 'fr') {
+      const frOptions = getOptionsArray(q.options_fr);
+      if (frOptions.length > 0) return frOptions;
+      return getOptionsArray(q.options);
+    }
+    return getOptionsArray(q.options);
+  };
+
   const addQuestion = (type: QuestionType) => {
     const newQ: QuestionDraft = {
       id: Math.random().toString(36).substr(2, 9),
@@ -142,7 +156,8 @@ export default function EditSurvey() {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
       if (language === 'fr') {
-        const arr = [...(q.options_fr || [])];
+        const base = getOptionsArray(q.options_fr);
+        const arr = (base.length > 0 ? base : getOptionsArray(q.options)).slice();
         arr[index] = value;
         return { ...q, options_fr: arr };
       } else {
@@ -369,7 +384,11 @@ export default function EditSurvey() {
       const resFr = await fetch(`/api/surveys/${params.id}/translation`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions_fr: payload_fr })
+        body: JSON.stringify({
+          questions_fr: payload_fr,
+          title_fr: titleFr || '',
+          description_fr: descriptionFr || ''
+        })
       });
 
       if (!resFr.ok) {
@@ -415,12 +434,18 @@ export default function EditSurvey() {
         <div className="card space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Survey Title</label>
+            {language === 'fr' && (
+              <div className="text-sm text-gray-500 dark:text-slate-400 mb-1 px-2 border-l-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-2 rounded-r">
+                {title || "No English title provided"}
+              </div>
+            )}
             <input
               type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              required={language === 'en'}
+              value={language === 'en' ? title : titleFr}
+              onChange={(e) => language === 'en' ? setTitle(e.target.value) : setTitleFr(e.target.value)}
               className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
+              placeholder={language === 'fr' ? "Titre en francais" : "Survey Title"}
             />
           </div>
           <div>
@@ -435,12 +460,17 @@ export default function EditSurvey() {
                 </select>
               </div>
             </div>
+            {language === 'fr' && (
+              <div className="text-sm text-gray-500 dark:text-slate-400 mb-2 px-2 border-l-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-2 rounded-r">
+                {description || "No English description provided"}
+              </div>
+            )}
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={language === 'en' ? description : descriptionFr}
+              onChange={(e) => language === 'en' ? setDescription(e.target.value) : setDescriptionFr(e.target.value)}
               className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:border-transparent transition-all"
               rows={4}
-              placeholder="What is this survey about?"
+              placeholder={language === 'fr' ? "De quoi s'agit-il?" : "What is this survey about?"}
             />
           </div>
           {/* Thumbnail Upload */}
@@ -517,7 +547,7 @@ export default function EditSurvey() {
           )}
 
           {questions.map((q, qIdx) => {
-            const optionsArray = language === 'en' ? getOptionsArray(q.options) : getOptionsArray(q.options_fr);
+            const optionsArray = getOptionsForDisplay(q);
             return (
               <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
                 <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language === 'fr' ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
@@ -620,7 +650,7 @@ export default function EditSurvey() {
                           type="text"
                           value={opt}
                           required
-                          placeholder={language === 'fr' ? (getOptionsArray(q.options)[oIdx] || `Option ${oIdx + 1} (Français)`) : `Option ${oIdx + 1}`}
+                          placeholder={language === 'fr' ? (getOptionsArray(q.options)[oIdx] || `Option ${oIdx + 1} (Francais)`) : `Option ${oIdx + 1}`}
                           onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                           className={`flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent ${language === 'fr' ? 'border-blue-200 focus:border-blue-500' : ''}`}
                         />

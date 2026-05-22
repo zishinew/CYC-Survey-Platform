@@ -130,6 +130,12 @@ export default function SurveyPage() {
         if (translationData?.questions_fr) {
           data.questions_fr = translationData.questions_fr;
         }
+        if (translationData?.title_fr) {
+          data.title_fr = translationData.title_fr;
+        }
+        if (translationData?.description_fr) {
+          data.description_fr = translationData.description_fr;
+        }
         
         setSurvey(data);
 
@@ -303,6 +309,8 @@ export default function SurveyPage() {
   }, [currentQuestionRaw, language, survey]);
 
   const progress = survey && totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
+  const displayTitle = language === 'fr' && survey?.title_fr ? survey.title_fr : survey?.title;
+  const displayDescription = language === 'fr' && survey?.description_fr ? survey.description_fr : survey?.description;
 
   // Helper to shuffle array (Fisher-Yates)
   const shuffleArray = (array: string[]) => {
@@ -373,7 +381,7 @@ export default function SurveyPage() {
           </div>
           <h1 className="text-3xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-4">Already Completed</h1>
           <p className="text-lg text-gray-600 dark:text-slate-400 dark:text-slate-300 leading-relaxed">
-            You have already submitted your response for <strong>{survey.title}</strong>. Thank you for participating!
+            You have already submitted your response for <strong>{displayTitle}</strong>. Thank you for participating!
           </p>
         </div>
       </div>
@@ -568,9 +576,9 @@ export default function SurveyPage() {
     return (
       <div className="flex-1 flex flex-col justify-center items-center px-4 w-full max-w-3xl mx-auto text-center h-full">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="w-full">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-6 leading-tight">{survey.title}</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-6 leading-tight">{displayTitle}</h1>
           <p className={`text-lg sm:text-xl text-gray-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed text-${survey.description_alignment || 'left'}`}>
-            {survey.description || "Share your voice and help empower Canadian youth."}
+            {displayDescription || "Share your voice and help empower Canadian youth."}
           </p>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setHasStarted(true)}
             className="btn-primary text-xl px-10 py-4 rounded-full shadow-md shadow-teal-500/5 dark:shadow-teal-400/5 hover:shadow-lg transition-all flex items-center justify-center mx-auto">

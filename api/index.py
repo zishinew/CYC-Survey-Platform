@@ -271,8 +271,17 @@ async def get_survey_translation(survey_id: str):
     try:
         res = supabase.table("ai_analyses").select("data").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
         if res.data:
-            return {"questions_fr": res.data[0]["data"]}
-        return {"questions_fr": None}
+            data = res.data[0]["data"]
+            if isinstance(data, list):
+                return {"questions_fr": data, "title_fr": None, "description_fr": None}
+            if isinstance(data, dict):
+                return {
+                    "questions_fr": data.get("questions_fr"),
+                    "title_fr": data.get("title_fr"),
+                    "description_fr": data.get("description_fr"),
+                }
+            return {"questions_fr": None, "title_fr": None, "description_fr": None}
+        return {"questions_fr": None, "title_fr": None, "description_fr": None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -282,20 +291,28 @@ async def update_survey_translation(survey_id: str, request: Request):
     try:
         body = await request.json()
         questions_fr = body.get("questions_fr")
+        title_fr = body.get("title_fr")
+        description_fr = body.get("description_fr")
         if not questions_fr:
             raise HTTPException(status_code=400, detail="Missing questions_fr array")
+
+        payload = {
+            "questions_fr": questions_fr,
+            "title_fr": title_fr,
+            "description_fr": description_fr,
+        }
 
         existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
         if existing.data:
             supabase.table("ai_analyses").update({
-                "data": questions_fr,
+                "data": payload,
                 "updated_at": datetime.utcnow().isoformat()
             }).eq("id", existing.data[0]["id"]).execute()
         else:
             supabase.table("ai_analyses").insert({
                 "survey_id": survey_id,
                 "analysis_type": "translation_fr",
-                "data": questions_fr,
+                "data": payload,
                 "updated_at": datetime.utcnow().isoformat()
             }).execute()
             
