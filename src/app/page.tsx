@@ -167,7 +167,7 @@ export default function Home() {
 
       {/* Raffle Info Floating Box */}
       <motion.div
-        className="absolute top-[25%] right-[5%] lg:right-[8%] z-30 hidden md:flex flex-col items-center bg-white border border-gray-100 shadow-[0_15px_40px_rgba(4,55,126,0.12)] rounded-2xl py-3 px-5 rotate-[4deg]"
+        className="absolute top-[38%] right-[5%] lg:right-[8%] z-30 hidden md:flex flex-col items-center bg-white border border-gray-100 shadow-[0_15px_40px_rgba(4,55,126,0.12)] rounded-2xl py-3 px-5 rotate-[4deg]"
         initial={{ opacity: 0, scale: 0 }}
         animate={{ opacity: showIntro ? 0 : 1, scale: showIntro ? 0 : 1, y: [0, -8, 0] }}
         transition={{ 

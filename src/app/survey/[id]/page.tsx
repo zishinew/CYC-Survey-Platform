@@ -698,7 +698,7 @@ export default function SurveyPage() {
                       <div className={`w-5 h-5 rounded-full border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center ${!!answers[currentQuestion.id]?.startsWith('Other: ') ? 'border-[var(--color-cyc-primary)]' : 'border-gray-300'}`}>
                         {!!answers[currentQuestion.id]?.startsWith('Other: ') && <div className="w-2.5 h-2.5 bg-[var(--color-cyc-primary)] rounded-full" />}
                       </div>
-                      <span className="text-base font-medium text-gray-700 dark:text-slate-200 mr-2">Other:</span>
+                      <span className="text-base font-medium text-gray-700 dark:text-slate-200 mr-2">{t('Other:')}</span>
                       <input type="text" value={otherTexts[currentQuestion.id] || ''}
                         onChange={(e) => {
                           setOtherTexts({...otherTexts, [currentQuestion.id]: e.target.value});
@@ -708,7 +708,7 @@ export default function SurveyPage() {
                         }}
                         onFocus={() => setAnswers({...answers, [currentQuestion.id]: `Other: ${otherTexts[currentQuestion.id] || ''}`})}
                         className="flex-grow border-b border-gray-300 focus:border-[var(--color-cyc-primary)] focus:outline-none px-1 py-0.5 bg-transparent"
-                        placeholder="Type your answer" />
+                        placeholder={t("Type your answer")} />
                     </label>
                   )}
                 </div>
@@ -793,7 +793,7 @@ export default function SurveyPage() {
                               <div className={`w-6 h-6 rounded border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center transition-colors ${isChecked ? 'bg-[var(--color-cyc-primary)] border-[var(--color-cyc-primary)]' : 'border-gray-300 dark:border-white/10 bg-white dark:bg-white/5'}`}>
                                 {isChecked && <CheckCircle2 className="w-4 h-4 text-white" />}
                               </div>
-                              <span className="text-base font-medium text-gray-700 dark:text-slate-200 mr-2">Other:</span>
+                              <span className="text-base font-medium text-gray-700 dark:text-slate-200 mr-2">{t('Other:')}</span>
                               <input type="text" value={otherTexts[currentQuestion.id] || ''}
                                 onChange={(e) => {
                                   setOtherTexts({...otherTexts, [currentQuestion.id]: e.target.value});
@@ -803,7 +803,7 @@ export default function SurveyPage() {
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                                 className="flex-grow border-b border-gray-300 focus:border-[var(--color-cyc-primary)] focus:outline-none px-1 py-0.5 bg-transparent"
-                                placeholder="Type your answer" />
+                                placeholder={t("Type your answer")} />
                             </label>
                           );
                         })()}

@@ -329,13 +329,26 @@ CRITICAL RULES:
         raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
         
         cleaned = raw_text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            cleaned = cleaned.strip()
-            
-        translated_questions = json_module.loads(cleaned)
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        
+        try:
+            translated_questions = json_module.loads(cleaned)
+        except json_module.JSONDecodeError as e:
+            import re
+            match = re.search(r'\[.*\]', raw_text, re.DOTALL)
+            if match:
+                try:
+                    translated_questions = json_module.loads(match.group(0))
+                except Exception:
+                    raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure. Please try again. Error: {str(e)}")
+            else:
+                raise HTTPException(status_code=500, detail=f"AI returned invalid JSON structure. Please try again. Error: {str(e)}")
         
         # 4. Save to database using ai_analyses table as a generic JSON store for this survey
         existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()

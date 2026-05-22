@@ -39,6 +39,8 @@ const translations: Record<Language, Record<string, string>> = {
     'Heard.': 'Heard.',
     '1 Survey = 1 Entry': '1 Survey = 1 Entry',
     'Win $100 (5 Winners!)': 'Win $100 (5 Winners!)',
+    'Other:': 'Other:',
+    'Type your answer': 'Type your answer',
   },
   fr: {
     'Admin': 'Administrateur',
@@ -58,8 +60,8 @@ const translations: Record<Language, Record<string, string>> = {
     'Submitting...': 'Soumission...',
     'Finish Survey': 'Terminer le sondage',
     'Continue': 'Continuer',
-    'A valid email address is required to enter the raffle and to contact participants when the second and third questionnaires are released.': 'Une adresse courriel valide est requise pour participer au tirage au sort et pour contacter les participants lorsque les deuxième et troisième questionnaires seront publiés.',
-    'Email addresses will remain confidential and will not be shared publicly or used for purposes unrelated to the survey series or raffle administration.': 'Les adresses courriel resteront confidentielles et ne seront pas partagées publiquement ni utilisées à des fins non liées à la série de sondages ou à l\'administration du tirage au sort.',
+    'A valid email address is required to enter the raffle and to contact participants when the second and third questionnaires are released.': 'Une adresse courriel valide est requise pour participer au tirage au sort ainsi que pour communiquer avec les participants lors de la publication des deuxième et troisième questionnaires.',
+    'Email addresses will remain confidential and will not be shared publicly or used for purposes unrelated to the survey series or raffle administration.': 'Les adresses courriel demeureront confidentielles. Elles ne seront ni divulguées publiquement ni utilisées à des fins autres que celles liées à la série de sondages ou à l’administration du tirage au sort.',
     'More Surveys Coming Soon': 'Plus de sondages à venir bientôt',
     'We are preparing new surveys to gather your feedback. Please check back later to share your perspective!': 'Nous préparons de nouveaux sondages pour recueillir vos commentaires. Veuillez revenir plus tard pour partager votre point de vue !',
     'START NOW': 'COMMENCER',
@@ -68,6 +70,8 @@ const translations: Record<Language, Record<string, string>> = {
     'Heard.': 'votre voix.',
     '1 Survey = 1 Entry': '1 Sondage = 1 Participation',
     'Win $100 (5 Winners!)': 'Gagnez 100$ (5 Gagnants!)',
+    'Other:': 'Autre:',
+    'Type your answer': 'Tapez votre réponse',
   }
 };
 
