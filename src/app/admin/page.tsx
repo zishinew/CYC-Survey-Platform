@@ -244,10 +244,10 @@ export default function AdminDashboard() {
                         Edit
                       </Link>
                     ) : (
-                      <span className="text-gray-400 dark:text-slate-500 flex items-center cursor-not-allowed" title="Published surveys are permanently locked from editing">
+                      <Link href={`/admin/edit/${survey.id}`} className="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 flex items-center" title="View locked survey or edit translations">
                         <Lock className="w-4 h-4 mr-1" />
-                        Locked
-                      </span>
+                        View
+                      </Link>
                     )}
 
                     <button 
