@@ -27,14 +27,20 @@ interface QuestionDraft {
   attachments?: { url: string; name: string; type: string }[];
   definitions?: {term: string; definition: string}[];
   definitions_fr?: {term: string; definition: string}[];
+  question_text_zh?: string;
+  options_zh?: string[];
+  section_description_zh?: string;
+  definitions_zh?: {term: string; definition: string}[];
 }
 
 export default function CreateSurvey() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [titleFr, setTitleFr] = useState('');
+  const [titleZh, setTitleZh] = useState('');
   const [description, setDescription] = useState('');
   const [descriptionFr, setDescriptionFr] = useState('');
+  const [descriptionZh, setDescriptionZh] = useState('');
   const [descriptionAlignment, setDescriptionAlignment] = useState('left');
   const [estimatedMinutes, setEstimatedMinutes] = useState(5);
   const [isActive, setIsActive] = useState(false);
@@ -43,7 +49,7 @@ export default function CreateSurvey() {
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [language, setLanguage] = useState<'en' | 'fr'>('en');
+  const [language, setLanguage] = useState<'en' | 'fr' | 'zh'>('en');
 
   const getOptionsArray = (options: any): string[] => {
     if (!options) return [];
@@ -55,7 +61,9 @@ export default function CreateSurvey() {
     if (language === 'fr') {
       const frOptions = getOptionsArray(q.options_fr);
       if (frOptions.length > 0) return frOptions;
-      return getOptionsArray(q.options);
+    } else if (language === 'zh') {
+      const zhOptions = getOptionsArray(q.options_zh);
+      if (zhOptions.length > 0) return zhOptions;
     }
     return getOptionsArray(q.options);
   };
@@ -353,6 +361,13 @@ export default function CreateSurvey() {
           >
             Français
           </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('zh')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'zh' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            中文
+          </button>
         </div>
       </div>
 
@@ -439,7 +454,7 @@ export default function CreateSurvey() {
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
 
-          {language === 'fr' && (
+          {language !== 'en' && (
             <div className="bg-blue-50 dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 p-3 rounded-lg text-sm flex items-start">
               <FileText className="w-5 h-5 mr-2 flex-shrink-0" />
               <p><strong>Translation Mode:</strong> Structural changes (adding/deleting questions or options) are disabled while translating. Switch back to English to modify the survey structure.</p>
@@ -448,7 +463,7 @@ export default function CreateSurvey() {
           
           {questions.map((q, qIdx) => (
             <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
-              <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language === 'fr' ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
+              <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language !== 'en' ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
                 <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 dark:text-slate-500 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                 </button>
@@ -477,7 +492,7 @@ export default function CreateSurvey() {
                 </div>
               </div>
 
-              <div className={`flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 dark:text-slate-400 ml-10 ${language === 'fr' ? 'hidden' : ''}`}>
+              <div className={`flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 dark:text-slate-400 ml-10 ${language !== 'en' ? 'hidden' : ''}`}>
                 
                 {q.type !== 'section_header' && (
                   <>
@@ -551,7 +566,7 @@ export default function CreateSurvey() {
                         placeholder={language === 'en' ? 'Provide context or instructions before the next set of questions...' : 'Traduction francaise du contexte...'}
                       />
                   </div>
-                  <div className={language === 'fr' ? 'hidden' : ''}>
+                  <div className={language !== 'en' ? 'hidden' : ''}>
                     <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 mb-1">Attachments</label>
                     {(q.attachments || []).map((att, aIdx) => (
                       <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white dark:bg-slate-800 p-2 rounded border text-sm">
@@ -578,11 +593,11 @@ export default function CreateSurvey() {
                       <input type="text" value={opt} required={language === 'en'}
                         onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                         className={`flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent ${language === 'fr' ? 'border-blue-200 focus:border-blue-500' : ''}`} />
-                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'} ${language === 'fr' ? 'hidden' : ''}`} title="Lock Option Position">
+                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'} ${language !== 'en' ? 'hidden' : ''}`} title="Lock Option Position">
                         {(q.locked_choices || []).includes(opt) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                       </button>
                       {getOptionsForDisplay(q).length > 1 && (
-                        <button type="button" onClick={() => removeOption(q.id, oIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 ${language === 'fr' ? 'hidden' : ''}`}>&times;</button>
+                        <button type="button" onClick={() => removeOption(q.id, oIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 ${language !== 'en' ? 'hidden' : ''}`}>&times;</button>
                       )}
                     </div>
                   ))}
@@ -592,7 +607,7 @@ export default function CreateSurvey() {
                       <span className="text-sm text-gray-500 dark:text-slate-500 italic">Other: ____</span>
                     </div>
                   )}
-                  <button type="button" onClick={() => addOption(q.id)} className={`text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block ${language === 'fr' ? 'hidden' : ''}`}>
+                  <button type="button" onClick={() => addOption(q.id)} className={`text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block ${language !== 'en' ? 'hidden' : ''}`}>
                     + Add Option
                   </button>
                 </div>
@@ -602,7 +617,7 @@ export default function CreateSurvey() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Interactive Definitions</h4>
-                  <button type="button" onClick={() => addDefinition(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language === 'fr' ? 'hidden' : ''}`}>
+                  <button type="button" onClick={() => addDefinition(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language !== 'en' ? 'hidden' : ''}`}>
                     + Add Definition
                   </button>
                 </div>
@@ -624,7 +639,7 @@ export default function CreateSurvey() {
                           className={`flex-grow p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm resize-none ${language === 'fr' ? 'border-blue-200' : ''}`}
                           rows={2}
                         />
-                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1 ${language === 'fr' ? 'hidden' : ''}`}>
+                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1 ${language !== 'en' ? 'hidden' : ''}`}>
                           &times;
                         </button>
                       </div>
@@ -637,7 +652,7 @@ export default function CreateSurvey() {
           ))}
 
           {/* Add Question Controls */}
-          <div className={`bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center ${language === 'fr' ? 'hidden' : ''}`}>
+          <div className={`bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center ${language !== 'en' ? 'hidden' : ''}`}>
             <p className="text-gray-500 dark:text-slate-500 mb-4">Add a new question to this survey</p>
             <div className="flex flex-wrap justify-center gap-3">
               <button type="button" onClick={() => addQuestion('section_header')} className="px-4 py-2 bg-yellow-50 border border-yellow-300 rounded shadow-sm hover:border-[var(--color-cyc-accent)] transition-colors text-sm font-medium text-yellow-700">

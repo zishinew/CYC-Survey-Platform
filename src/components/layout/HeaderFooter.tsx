@@ -39,10 +39,10 @@ export function Header() {
           </Link>
           <nav className="flex items-center space-x-6 relative">
             <button
-              onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
+              onClick={() => setLanguage(language === 'en' ? 'fr' : language === 'fr' ? 'zh' : 'en')}
               className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
             >
-              {language === 'en' ? 'Français' : 'English'}
+              {language === 'en' ? 'Français' : language === 'fr' ? '中文' : 'English'}
             </button>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
