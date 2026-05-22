@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
@@ -9,8 +9,6 @@ import string
 import random
 from datetime import datetime
 import io
-import pdfplumber
-
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
@@ -265,117 +263,7 @@ async def duplicate_survey(survey_id: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/surveys/{survey_id}/translate-pdf")
-async def translate_pdf(survey_id: str, file: UploadFile = File(...)):
-    try:
-        # 1. Extract text from PDF
-        pdf_bytes = await file.read()
-        import asyncio
-        def extract_pdf():
-            text_out = ""
-            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                for page in pdf.pages:
-                    text = page.extract_text()
-                    if text:
-                        text_out += text + "\n"
-            return text_out
-            
-        pdf_text = await asyncio.to_thread(extract_pdf)
-        
-        # 2. Get English survey questions
-        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
-        if not questions_res.data:
-            raise HTTPException(status_code=404, detail="No questions found for this survey")
-            
-        import json as json_module
-        english_questions_json = json_module.dumps(questions_res.data, indent=2)
-        
-        # 3. Call Gemini
-        prompt = f"""You are a professional translator and data architect. You have been provided with an English JSON array of survey questions and the raw text extracted from a translated French PDF document.
 
-Your task is to perfectly reconstruct the English JSON array, but with all user-facing text translated into French based on the provided PDF text.
-CRITICAL RULES:
-1. The JSON structure MUST be identical to the English JSON array.
-2. All keys must remain exactly the same (e.g. id, type, order_index, is_required). DO NOT translate the JSON keys.
-3. Keep the 'id' and 'type' values identical to the original English version.
-4. Translate 'question_text' to French.
-5. If 'options.choices' exists, translate all choices to French. Maintain the exact same number of choices in the exact same order.
-6. YOU MUST properly escape all double quotes (\") inside your French translations to ensure valid JSON syntax.
-7. Return ONLY the valid JSON array.
-
---- ENGLISH JSON ARRAY ---
-{english_questions_json}
-
---- EXTRACTED FRENCH PDF TEXT ---
-{pdf_text}
-"""
-        
-        GOOGLE_AI_KEY = os.environ.get("GOOGLE_AI_KEY")
-        if not GOOGLE_AI_KEY:
-            raise HTTPException(status_code=500, detail="Google AI API key not configured")
-        
-        import httpx
-        GEMINI_MODEL = "gemini-3.5-flash"
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GOOGLE_AI_KEY}"
-        
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            gemini_res = await client.post(gemini_url, json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.1,
-                    "maxOutputTokens": 8192
-                }
-            })
-            
-        if gemini_res.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Gemini API error: {gemini_res.text[:500]}")
-            
-        gemini_data = gemini_res.json()
-        raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
-        
-        cleaned = raw_text.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        elif cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        
-        try:
-            translated_questions = json_module.loads(cleaned)
-        except json_module.JSONDecodeError as e:
-            # The AI generated invalid JSON (often unescaped quotes). Let's use json-repair to fix it automatically!
-            try:
-                import json_repair
-                translated_questions = json_repair.loads(raw_text)
-                if not isinstance(translated_questions, list):
-                    raise ValueError("Repaired JSON is not a list")
-            except Exception as repair_error:
-                print("JSON REPAIR FAILED. RAW OUTPUT:", raw_text)
-                raise HTTPException(status_code=500, detail=f"AI returned deeply invalid JSON structure. Repair failed: {str(repair_error)}. Original error: {str(e)}")
-        
-        # 4. Save to database using ai_analyses table as a generic JSON store for this survey
-        existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
-        if existing.data:
-            supabase.table("ai_analyses").update({
-                "data": translated_questions,
-                "updated_at": datetime.utcnow().isoformat()
-            }).eq("id", existing.data[0]["id"]).execute()
-        else:
-            supabase.table("ai_analyses").insert({
-                "survey_id": survey_id,
-                "analysis_type": "translation_fr",
-                "data": translated_questions,
-                "updated_at": datetime.utcnow().isoformat()
-            }).execute()
-            
-        return {"success": True, "questions_fr": translated_questions}
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/surveys/{survey_id}/translation")
 async def get_survey_translation(survey_id: str):

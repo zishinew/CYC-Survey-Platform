@@ -23,6 +23,10 @@ interface QuestionDraft {
   attachments?: { url: string; name: string; type: string }[];
   reference_number?: number;
   definitions?: {term: string; definition: string}[];
+  question_text_fr?: string;
+  options_fr?: any;
+  section_description_fr?: string;
+  definitions_fr?: {term: string; definition: string}[];
 }
 
 export default function EditSurvey() {
@@ -41,22 +45,16 @@ export default function EditSurvey() {
   const [error, setError] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
-  const [translationUploading, setTranslationUploading] = useState(false);
-  const [translationSuccess, setTranslationSuccess] = useState('');
-  
-  // Translation Editor Modal State
-  const [showTranslationModal, setShowTranslationModal] = useState(false);
-  const [translationJSON, setTranslationJSON] = useState('');
-  const [translationSaving, setTranslationSaving] = useState(false);
-  const [translationModalError, setTranslationModalError] = useState('');
-
+  const [language, setLanguage] = useState<'en' | 'fr'>('en');
   useEffect(() => {
-    fetch(`/api/surveys/${params.id}`)
-      .then(res => {
+    Promise.all([
+      fetch(`/api/surveys/${params.id}`).then(res => {
         if (!res.ok) throw new Error('Survey not found');
         return res.json();
-      })
-      .then(data => {
+      }),
+      fetch(`/api/surveys/${params.id}/translation`).then(res => res.ok ? res.json() : { questions_fr: null })
+    ])
+      .then(([data, transData]) => {
         if (data.is_active) {
           setError("Cannot edit an active survey. Please go back.");
           setLoading(false);
@@ -69,11 +67,16 @@ export default function EditSurvey() {
         setIsActive(data.is_active);
         setThumbnailUrl(data.thumbnail_url || '');
         
+        const frQuestions = transData.questions_fr || [];
+        
         // Map questions
         const loadedQuestions = data.questions.map((q: any) => {
+          const frQ = frQuestions.find((fq: any) => fq.id === q.id) || {};
           const isArr = !q.options || Array.isArray(q.options);
+          const isFrArr = !frQ.options || Array.isArray(frQ.options);
+          
           return {
-            id: Math.random().toString(36).substr(2, 9), // Local IDs for editing
+            id: q.id, // Use real ID so we can match properly, or a stable one
             question_text: q.question_text,
             type: q.type,
             options: isArr ? (q.options || []) : q.options.choices,
@@ -87,7 +90,13 @@ export default function EditSurvey() {
             description_alignment: (!isArr && q.options.description_alignment) ? q.options.description_alignment : undefined,
             attachments: !isArr ? q.options.attachments : undefined,
             reference_number: (!isArr && q.options.has_calculator) ? 1 : undefined,
-            definitions: !isArr ? q.options.definitions : undefined
+            definitions: !isArr ? q.options.definitions : undefined,
+            
+            // French fields
+            question_text_fr: frQ.question_text || '',
+            options_fr: isFrArr ? (frQ.options || []) : (frQ.options?.choices || []),
+            section_description_fr: (!isFrArr && frQ.options?.description) ? frQ.options.description : '',
+            definitions_fr: !isFrArr ? frQ.options?.definitions : undefined
           };
         });
         setQuestions(loadedQuestions);
@@ -132,10 +141,16 @@ export default function EditSurvey() {
   const updateOption = (qId: string, index: number, value: string) => {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
-      const isArr = Array.isArray(q.options);
-      const arr = isArr ? [...q.options] : [...(q.options.choices || [])];
-      arr[index] = value;
-      return { ...q, options: isArr ? arr : { ...q.options, choices: arr } };
+      if (language === 'fr') {
+        const arr = [...(q.options_fr || [])];
+        arr[index] = value;
+        return { ...q, options_fr: arr };
+      } else {
+        const isArr = Array.isArray(q.options);
+        const arr = isArr ? [...q.options] : [...(q.options.choices || [])];
+        arr[index] = value;
+        return { ...q, options: isArr ? arr : { ...q.options, choices: arr } };
+      }
     }));
   };
 
@@ -161,72 +176,6 @@ export default function EditSurvey() {
     setThumbnailUploading(false);
   };
 
-  const handleTranslationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setTranslationUploading(true);
-    setTranslationSuccess('');
-    setError('');
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await fetch(`/api/surveys/${params.id}/translate-pdf`, { method: 'POST', body: formData });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || 'Translation parsing failed');
-      }
-      setTranslationSuccess('Successfully translated and saved French survey schema!');
-    } catch (err: any) {
-      setError(err.message || 'Translation failed');
-    } finally {
-      setTranslationUploading(false);
-    }
-  };
-
-  const openTranslationEditor = async () => {
-    try {
-      setTranslationModalError('');
-      setTranslationJSON('Loading...');
-      setShowTranslationModal(true);
-      const res = await fetch(`/api/surveys/${params.id}/translation`);
-      if (!res.ok) throw new Error('Failed to fetch translation');
-      const data = await res.json();
-      if (data.questions_fr) {
-        setTranslationJSON(JSON.stringify(data.questions_fr, null, 2));
-      } else {
-        setTranslationJSON('[\n  // No translation found yet\n]');
-      }
-    } catch (err: any) {
-      setTranslationModalError(err.message);
-      setTranslationJSON('[]');
-    }
-  };
-
-  const saveTranslation = async () => {
-    setTranslationSaving(true);
-    setTranslationModalError('');
-    try {
-      const parsed = JSON.parse(translationJSON);
-      if (!Array.isArray(parsed)) throw new Error('JSON must be an array of questions');
-      
-      const res = await fetch(`/api/surveys/${params.id}/translation`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions_fr: parsed })
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || 'Failed to save translation');
-      }
-      setShowTranslationModal(false);
-      setTranslationSuccess('Manually updated French translation successfully!');
-    } catch (err: any) {
-      setTranslationModalError(err.message || 'Invalid JSON syntax');
-    } finally {
-      setTranslationSaving(false);
-    }
-  };
 
   const handleAttachmentUpload = async (qId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -269,9 +218,17 @@ export default function EditSurvey() {
   const updateDefinition = (qId: string, index: number, field: 'term' | 'definition', value: string) => {
     setQuestions(questions.map(q => {
       if (q.id !== qId) return q;
-      const newDefs = [...(q.definitions || [])];
-      newDefs[index] = { ...newDefs[index], [field]: value };
-      return { ...q, definitions: newDefs };
+      if (language === 'fr') {
+        const newDefs = [...(q.definitions_fr || q.definitions || [])];
+        if (!newDefs[index]) newDefs[index] = { term: '', definition: '' };
+        newDefs[index] = { ...newDefs[index], [field]: value };
+        return { ...q, definitions_fr: newDefs };
+      } else {
+        const newDefs = [...(q.definitions || [])];
+        if (!newDefs[index]) newDefs[index] = { term: '', definition: '' };
+        newDefs[index] = { ...newDefs[index], [field]: value };
+        return { ...q, definitions: newDefs };
+      }
     }));
   };
 
@@ -382,9 +339,43 @@ export default function EditSurvey() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || "Failed to update survey");
+        throw new Error(errorData.detail || 'Failed to update survey');
       }
-      
+
+      // Also generate and save French translation payload
+      const payload_fr = payload.questions.map((q, idx) => {
+        const draftQ = questions[idx];
+        let optionsFr: any = null;
+        if (q.type === 'multiple_choice' || q.type === 'dropdown') {
+          optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
+        } else if (q.type === 'checkboxes') {
+          optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], max_selections: q.options?.max_selections, has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
+        } else if (q.type === 'rating_scale' && draftQ.reference_number) {
+          optionsFr = { has_calculator: true };
+        } else if (q.type === 'section_header') {
+          optionsFr = { description: draftQ.section_description_fr || draftQ.section_description || '', attachments: draftQ.attachments || [], description_alignment: draftQ.description_alignment || 'left' };
+        }
+        if (draftQ.definitions_fr && draftQ.definitions_fr.length > 0) {
+          if (!optionsFr) optionsFr = {};
+          optionsFr.definitions = draftQ.definitions_fr;
+        }
+        return {
+          ...q,
+          question_text: draftQ.question_text_fr || draftQ.question_text || '',
+          options: optionsFr
+        };
+      });
+
+      const resFr = await fetch(`/api/surveys/${params.id}/translation`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions_fr: payload_fr })
+      });
+
+      if (!resFr.ok) {
+        throw new Error('Failed to save French translations');
+      }
+
       router.push('/admin');
     } catch (err: any) {
       setError(err.message || 'Error saving survey');
@@ -471,27 +462,7 @@ export default function EditSurvey() {
               )}
             </div>
           </div>
-          {/* Translation Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">French Translation (PDF)</label>
-            <div className="flex items-center space-x-4">
-              <label className={`flex items-center px-4 py-2 border border-dashed rounded-lg cursor-pointer transition-colors ${translationSuccess ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-gray-50 dark:bg-slate-900/50 border-gray-300 dark:border-slate-600 hover:border-[var(--color-cyc-primary)]'}`}>
-                <FileText className={`w-4 h-4 mr-2 ${translationSuccess ? 'text-green-500' : 'text-gray-500 dark:text-slate-500'}`} />
-                <span className={`text-sm ${translationSuccess ? 'text-green-600' : 'text-gray-600 dark:text-slate-400'}`}>
-                  {translationUploading ? 'Translating via AI...' : translationSuccess ? 'Translation Active' : 'Upload French PDF'}
-                </span>
-                <input type="file" accept="application/pdf" onChange={handleTranslationUpload} className="hidden" disabled={translationUploading} />
-              </label>
-              <button 
-                type="button" 
-                onClick={openTranslationEditor}
-                className="text-sm font-medium text-[var(--color-cyc-primary)] hover:underline ml-4"
-              >
-                View/Edit Translation
-              </button>
-              {translationSuccess && <span className="text-xs text-green-600 font-medium">{translationSuccess}</span>}
-            </div>
-          </div>
+
           <div className="flex space-x-6">
             <div className="w-1/3">
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Est. Time (minutes)</label>
@@ -518,13 +489,38 @@ export default function EditSurvey() {
         </div>
 
         <div className="space-y-6">
-          <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
+            <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'en' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('fr')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'fr' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              >
+                Français
+              </button>
+            </div>
+          </div>
           
+          {language === 'fr' && (
+            <div className="bg-blue-50 dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 p-3 rounded-lg text-sm flex items-start">
+              <FileText className="w-5 h-5 mr-2 flex-shrink-0" />
+              <p><strong>Translation Mode:</strong> Structural changes (adding/deleting questions or options) are disabled while translating. Switch back to English to modify the survey structure.</p>
+            </div>
+          )}
+
           {questions.map((q, qIdx) => {
-            const optionsArray = getOptionsArray(q.options);
+            const optionsArray = language === 'en' ? getOptionsArray(q.options) : getOptionsArray(q.options_fr);
             return (
               <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
-                <div className="absolute top-4 right-4 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className={`absolute top-4 right-4 flex items-center space-x-1 transition-opacity ${language === 'fr' ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
                   <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 dark:text-slate-500 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                   </button>
@@ -536,18 +532,26 @@ export default function EditSurvey() {
                   </button>
                 </div>
                 
-                <div className="flex items-center space-x-3 mb-4">
-                  <span className="font-bold text-gray-400 dark:text-slate-500">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
-                  <input
-                    type="text"
-                    required
-                    value={q.question_text}
-                    onChange={(e) => updateQuestion(q.id, 'question_text', e.target.value)}
-                    className="flex-grow p-2 border rounded font-medium focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
-                  />
+                <div className="flex items-start space-x-3 mb-4">
+                  <span className="font-bold text-gray-400 dark:text-slate-500 mt-2">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
+                  <div className="flex-grow">
+                    {language === 'fr' && (
+                      <div className="text-sm text-gray-500 dark:text-slate-400 mb-1 px-2 border-l-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-2 rounded-r">
+                        {q.question_text || "No English text provided"}
+                      </div>
+                    )}
+                    <input
+                      type="text"
+                      required
+                      value={language === 'en' ? q.question_text : (q.question_text_fr || '')}
+                      onChange={(e) => updateQuestion(q.id, language === 'en' ? 'question_text' : 'question_text_fr', e.target.value)}
+                      placeholder={language === 'fr' ? "Traduction française" : "Question Text"}
+                      className="w-full p-2 border rounded font-medium focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center space-x-4 mb-4 text-sm text-gray-600 dark:text-slate-400">
+                <div className={`flex items-center space-x-4 mb-4 text-sm text-gray-600 dark:text-slate-400 ${language === 'fr' ? 'hidden' : ''}`}>
                   
                   <div className="flex items-center gap-4">
                   <label className="flex items-center cursor-pointer text-sm text-gray-600 dark:text-slate-400">
@@ -616,20 +620,21 @@ export default function EditSurvey() {
                           type="text"
                           value={opt}
                           required
+                          placeholder={language === 'fr' ? (getOptionsArray(q.options)[oIdx] || `Option ${oIdx + 1} (Français)`) : `Option ${oIdx + 1}`}
                           onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
-                          className="flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent"
+                          className={`flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent ${language === 'fr' ? 'border-blue-200 focus:border-blue-500' : ''}`}
                         />
-                        <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'}`} title="Lock Option Position">
+                        <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'} ${language === 'fr' ? 'hidden' : ''}`} title="Lock Option Position">
                           {(q.locked_choices || []).includes(opt) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                         </button>
                         {optionsArray.length > 1 && (
-                          <button type="button" onClick={() => removeOption(q.id, oIdx)} className="text-gray-400 dark:text-slate-500 hover:text-red-500">
+                          <button type="button" onClick={() => removeOption(q.id, oIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 ${language === 'fr' ? 'hidden' : ''}`}>
                             &times;
                           </button>
                         )}
                       </div>
                     ))}
-                    <button type="button" onClick={() => addOption(q.id)} className="text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block">
+                    <button type="button" onClick={() => addOption(q.id)} className={`text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block ${language === 'fr' ? 'hidden' : ''}`}>
                       + Add Option
                     </button>
                   </div>
@@ -651,12 +656,12 @@ export default function EditSurvey() {
                     </div>
                   </div>
                       <RichTextEditor
-                        value={q.section_description || ''}
-                        onChange={(val) => updateQuestion(q.id, 'section_description', val)}
-                        placeholder="Provide context or instructions before the next set of questions..."
+                        value={language === 'en' ? (q.section_description || '') : (q.section_description_fr || '')}
+                        onChange={(val) => updateQuestion(q.id, language === 'en' ? 'section_description' : 'section_description_fr', val)}
+                        placeholder={language === 'en' ? "Provide context or instructions before the next set of questions..." : "Traduction française du contexte..."}
                       />
                     </div>
-                    <div>
+                    <div className={language === 'fr' ? 'hidden' : ''}>
                       <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 mb-1">Attachments</label>
                       {(q.attachments || []).map((att, aIdx) => (
                         <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white dark:bg-slate-800 p-2 rounded border text-sm">
@@ -678,30 +683,34 @@ export default function EditSurvey() {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Interactive Definitions</h4>
-                  <button type="button" onClick={() => addDefinition(q.id)} className="text-xs text-[var(--color-cyc-primary)] hover:underline">
+                  <button type="button" onClick={() => addDefinition(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language === 'fr' ? 'hidden' : ''}`}>
                     + Add Definition
                   </button>
                 </div>
                 {q.definitions && q.definitions.length > 0 && (
                   <div className="space-y-2">
-                    {q.definitions.map((def, dIdx) => (
+                    {(language === 'en' ? q.definitions : (q.definitions_fr || q.definitions)).map((def, dIdx) => (
                       <div key={dIdx} className="flex items-start space-x-2">
-                        <input
-                          type="text"
-                          value={def.term}
-                          onChange={(e) => updateDefinition(q.id, dIdx, 'term', e.target.value)}
-                          placeholder="Term to bold"
-                          className="w-1/3 p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm"
-                        />
-                        <textarea
-                          value={def.definition}
-                          onChange={(e) => updateDefinition(q.id, dIdx, 'definition', e.target.value)}
-                          placeholder="Definition text..."
-                          className="flex-grow p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm resize-none"
-                          rows={2}
-                        />
-                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1">
-                          &times;
+                        <div className="w-1/3">
+                          <input
+                            type="text"
+                            placeholder={language === 'fr' ? (q.definitions![dIdx]?.term || "Terme") : "Term"}
+                            value={def.term}
+                            onChange={(e) => updateDefinition(q.id, dIdx, 'term', e.target.value)}
+                            className={`w-full p-1.5 text-sm border rounded focus:ring-1 focus:ring-[var(--color-cyc-primary)] focus:outline-none ${language === 'fr' ? 'border-blue-200' : ''}`}
+                          />
+                        </div>
+                        <div className="flex-grow">
+                          <textarea
+                            placeholder={language === 'fr' ? (q.definitions![dIdx]?.definition || "Définition") : "Definition"}
+                            value={def.definition}
+                            onChange={(e) => updateDefinition(q.id, dIdx, 'definition', e.target.value)}
+                            rows={1}
+                            className={`w-full p-1.5 text-sm border rounded focus:ring-1 focus:ring-[var(--color-cyc-primary)] focus:outline-none resize-none ${language === 'fr' ? 'border-blue-200' : ''}`}
+                          />
+                        </div>
+                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`p-1.5 text-gray-400 hover:text-red-500 ${language === 'fr' ? 'hidden' : ''}`}>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -713,7 +722,7 @@ export default function EditSurvey() {
             );
           })}
 
-          <div className="bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center">
+          <div className={`bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center ${language === 'fr' ? 'hidden' : ''}`}>
             <p className="text-gray-500 dark:text-slate-500 mb-4">Add a new question to this survey</p>
             <div className="flex flex-wrap justify-center gap-3">
               <button type="button" onClick={() => addQuestion('section_header')} className="px-4 py-2 bg-yellow-50 border border-yellow-300 rounded shadow-sm hover:border-[var(--color-cyc-accent)] transition-colors text-sm font-medium text-yellow-700">
@@ -755,54 +764,6 @@ export default function EditSurvey() {
           </button>
         </div>
       </form>
-
-      {showTranslationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-4xl flex flex-col h-[80vh]">
-            <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Edit French Translation (JSON)</h3>
-              <button onClick={() => setShowTranslationModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                &times;
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-hidden flex flex-col p-4 relative">
-              <p className="text-sm text-gray-600 dark:text-slate-400 mb-2">
-                This is the raw JSON generated by the AI for the French translation. You can manually tweak wording here. Ensure the JSON syntax remains valid!
-              </p>
-              {translationModalError && (
-                <div className="p-3 mb-2 bg-red-50 text-red-700 rounded text-sm border border-red-200">
-                  {translationModalError}
-                </div>
-              )}
-              <textarea
-                value={translationJSON}
-                onChange={(e) => setTranslationJSON(e.target.value)}
-                className="w-full flex-1 p-4 font-mono text-sm border border-gray-300 dark:border-slate-700 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-cyc-primary)] bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100 whitespace-pre"
-                spellCheck={false}
-              />
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 dark:border-slate-800 flex justify-end space-x-3 bg-gray-50 dark:bg-slate-900/50 rounded-b-xl">
-              <button
-                type="button"
-                onClick={() => setShowTranslationModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={saveTranslation}
-                disabled={translationSaving}
-                className="btn-primary"
-              >
-                {translationSaving ? 'Saving...' : 'Save Translation'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
