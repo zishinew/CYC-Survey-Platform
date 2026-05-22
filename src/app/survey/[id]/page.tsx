@@ -582,9 +582,9 @@ export default function SurveyPage() {
           </p>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setHasStarted(true)}
             className="btn-primary text-xl px-10 py-4 rounded-full shadow-md shadow-teal-500/5 dark:shadow-teal-400/5 hover:shadow-lg transition-all flex items-center justify-center mx-auto">
-            Start Survey <ArrowRight className="w-6 h-6 ml-3" />
+            {t('Start Survey')} <ArrowRight className="w-6 h-6 ml-3" />
           </motion.button>
-          <p className="text-sm text-gray-400 mt-6 font-medium">Estimated time: {survey.estimated_minutes} minutes</p>
+          <p className="text-sm text-gray-400 mt-6 font-medium">{t('Estimated time:')} {survey.estimated_minutes} {t('minutes')}</p>
         </motion.div>
       </div>
     );

@@ -14,6 +14,8 @@ const translations: Record<Language, Record<string, string>> = {
   en: {
     'Admin': 'Admin',
     'Start Survey': 'Start Survey',
+    'Estimated time:': 'Estimated time:',
+    'minutes': 'minutes',
     'Coming Soon': 'Coming Soon',
     'Completed': 'Completed',
     'Done': 'Done',
@@ -45,6 +47,8 @@ const translations: Record<Language, Record<string, string>> = {
   fr: {
     'Admin': 'Administrateur',
     'Start Survey': 'Commencer le sondage',
+    'Estimated time:': 'Temps estime :',
+    'minutes': 'minutes',
     'Coming Soon': 'Bientôt disponible',
     'Completed': 'Terminé',
     'Done': 'Fait',
