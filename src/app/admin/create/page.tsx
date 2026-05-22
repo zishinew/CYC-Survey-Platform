@@ -249,10 +249,10 @@ export default function CreateSurvey() {
   return (
     <div className="max-w-4xl mx-auto py-8">
       <div className="flex items-center mb-6">
-        <Link href="/admin" className="text-gray-500 hover:text-[var(--color-cyc-secondary)] mr-4">
+        <Link href="/admin" className="text-gray-500 dark:text-slate-500 hover:text-[var(--color-cyc-secondary)] dark:text-slate-100 mr-4">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)]">Create New Survey</h1>
+        <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Create New Survey</h1>
       </div>
 
       {error && <div className="bg-red-50 text-red-600 p-4 rounded mb-6">{error}</div>}
@@ -261,16 +261,16 @@ export default function CreateSurvey() {
         {/* Basic Details */}
         <div className="card space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Survey Title</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Survey Title</label>
             <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
+              className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
               placeholder="e.g. Mental Health Perspectives 2026" />
           </div>
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-gray-700">Description (Optional)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Description (Optional)</label>
               <div className="flex items-center space-x-2">
-                <label className="text-xs text-gray-500">Alignment:</label>
+                <label className="text-xs text-gray-500 dark:text-slate-500">Alignment:</label>
                 <select value={descriptionAlignment} onChange={(e) => setDescriptionAlignment(e.target.value)} className="text-xs border rounded p-1 focus:outline-none">
                   <option value="left">Left</option>
                   <option value="center">Center</option>
@@ -289,18 +289,18 @@ export default function CreateSurvey() {
 
           {/* Thumbnail Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Survey Thumbnail</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Survey Thumbnail</label>
             <div className="flex items-center space-x-4">
               {thumbnailUrl ? (
-                <div className="relative w-32 h-20 rounded-lg overflow-hidden border border-gray-200">
+                <div className="relative w-32 h-20 rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
                   <img src={thumbnailUrl} alt="Thumbnail" className="w-full h-full object-cover" />
                   <button type="button" onClick={() => setThumbnailUrl('')}
                     className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">&times;</button>
                 </div>
               ) : (
-                <label className="flex items-center px-4 py-2 bg-gray-50 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[var(--color-cyc-primary)] transition-colors">
-                  <Upload className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">{thumbnailUploading ? 'Uploading...' : 'Upload Image'}</span>
+                <label className="flex items-center px-4 py-2 bg-gray-50 dark:bg-slate-900/50 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-[var(--color-cyc-primary)] transition-colors">
+                  <Upload className="w-4 h-4 mr-2 text-gray-500 dark:text-slate-500" />
+                  <span className="text-sm text-gray-600 dark:text-slate-400">{thumbnailUploading ? 'Uploading...' : 'Upload Image'}</span>
                   <input type="file" accept="image/*" onChange={handleThumbnailUpload} className="hidden" disabled={thumbnailUploading} />
                 </label>
               )}
@@ -309,15 +309,15 @@ export default function CreateSurvey() {
 
           <div className="flex space-x-6">
             <div className="w-1/3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Est. Time (minutes)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Est. Time (minutes)</label>
               <input type="number" min={1} value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none" />
+                className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none" />
             </div>
             <div className="w-1/3 flex items-center pt-6">
               <label className="flex items-center cursor-pointer">
                 <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)}
                   className="mr-2 h-5 w-5 text-[var(--color-cyc-primary)]" />
-                <span className="font-medium text-gray-700">Set as Active</span>
+                <span className="font-medium text-gray-700 dark:text-slate-300">Set as Active</span>
               </label>
             </div>
           </div>
@@ -325,26 +325,26 @@ export default function CreateSurvey() {
 
         {/* Questions List */}
         <div className="space-y-6">
-          <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)]">Questions</h2>
+          <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
           
           {questions.map((q, qIdx) => (
             <div key={q.id} className={`card p-6 border-l-4 shadow-sm relative group ${q.type === 'section_header' ? 'border-l-[var(--color-cyc-accent)] bg-yellow-50/30' : 'border-l-[var(--color-cyc-primary)]'}`}>
               <div className="absolute top-4 right-4 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
+                <button type="button" onClick={() => moveQuestionUp(qIdx)} disabled={qIdx === 0} className={`p-1.5 rounded ${qIdx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 dark:text-slate-500 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Up">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                 </button>
-                <button type="button" onClick={() => moveQuestionDown(qIdx)} disabled={qIdx === questions.length - 1} className={`p-1.5 rounded ${qIdx === questions.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Down">
+                <button type="button" onClick={() => moveQuestionDown(qIdx)} disabled={qIdx === questions.length - 1} className={`p-1.5 rounded ${qIdx === questions.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 dark:text-slate-500 hover:text-[var(--color-cyc-primary)] hover:bg-teal-50'}`} title="Move Down">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
-                <button type="button" onClick={() => removeQuestion(q.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete Question">
+                <button type="button" onClick={() => removeQuestion(q.id)} className="p-1.5 text-gray-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 rounded" title="Delete Question">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
               
               <div className="flex items-start space-x-4 mb-4 pr-28">
-                <span className="font-bold text-gray-400 mt-8 w-6 text-right">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
+                <span className="font-bold text-gray-400 dark:text-slate-500 mt-8 w-6 text-right">{q.type === 'section_header' ? '§' : `Q${qIdx + 1}`}</span>
                 <div className="flex-grow">
-                  <label className="block text-sm font-medium text-gray-600 capitalize mb-1">{q.type.replace('_', ' ')}</label>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 capitalize mb-1">{q.type.replace('_', ' ')}</label>
                   <RichTextEditor
                     value={q.question_text}
                     onChange={(val) => updateQuestion(q.id, 'question_text', val)}
@@ -353,7 +353,7 @@ export default function CreateSurvey() {
                 </div>
               </div>
 
-              <div className="flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 ml-10">
+              <div className="flex items-center flex-wrap gap-3 mb-4 text-sm text-gray-600 dark:text-slate-400 ml-10">
                 
                 {q.type !== 'section_header' && (
                   <>
@@ -377,7 +377,7 @@ export default function CreateSurvey() {
                     <input type="number" min={1} max={q.options.length + (q.has_other ? 1 : 0)}
                       value={q.max_selections || 1}
                       onChange={(e) => updateQuestion(q.id, 'max_selections', parseInt(e.target.value) || 1)}
-                      className="w-16 p-1 border rounded focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-center" />
+                      className="w-16 p-1 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-center" />
                   </label>
                 )}
                 {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
@@ -411,9 +411,9 @@ export default function CreateSurvey() {
                 <div className="space-y-3 ml-10 pr-28">
                   <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label className="block text-sm font-medium text-gray-600">Section Description</label>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-slate-400">Section Description</label>
                     <div className="flex items-center space-x-2">
-                      <label className="text-xs text-gray-500">Alignment:</label>
+                      <label className="text-xs text-gray-500 dark:text-slate-500">Alignment:</label>
                       <select value={q.description_alignment || 'left'} onChange={(e) => updateQuestion(q.id, 'description_alignment', e.target.value)} className="text-xs border rounded p-1 focus:outline-none">
                         <option value="left">Left</option>
                         <option value="center">Center</option>
@@ -428,17 +428,17 @@ export default function CreateSurvey() {
                       />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Attachments</label>
+                    <label className="block text-sm font-medium text-gray-600 dark:text-slate-400 mb-1">Attachments</label>
                     {(q.attachments || []).map((att, aIdx) => (
-                      <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white p-2 rounded border text-sm">
+                      <div key={aIdx} className="flex items-center space-x-2 mb-2 bg-white dark:bg-slate-800 p-2 rounded border text-sm">
                         {att.type.startsWith('image/') ? <ImageIcon className="w-4 h-4 text-green-500" /> : <FileText className="w-4 h-4 text-blue-500" />}
                         <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex-grow truncate">{att.name}</a>
                         <button type="button" onClick={() => removeAttachment(q.id, aIdx)} className="text-red-400 hover:text-red-600">&times;</button>
                       </div>
                     ))}
-                    <label className="inline-flex items-center px-3 py-1.5 bg-white border border-dashed border-gray-300 rounded cursor-pointer hover:border-[var(--color-cyc-primary)] transition-colors text-sm">
-                      <Upload className="w-3.5 h-3.5 mr-1.5 text-gray-500" />
-                      <span className="text-gray-600">Add File (PDF, PNG, JPEG)</span>
+                    <label className="inline-flex items-center px-3 py-1.5 bg-white dark:bg-slate-800 border border-dashed border-gray-300 dark:border-slate-600 rounded cursor-pointer hover:border-[var(--color-cyc-primary)] transition-colors text-sm">
+                      <Upload className="w-3.5 h-3.5 mr-1.5 text-gray-500 dark:text-slate-500" />
+                      <span className="text-gray-600 dark:text-slate-400">Add File (PDF, PNG, JPEG)</span>
                       <input type="file" accept=".pdf,.png,.jpg,.jpeg,image/*,application/pdf" onChange={(e) => handleAttachmentUpload(q.id, e)} className="hidden" />
                     </label>
                   </div>
@@ -454,18 +454,18 @@ export default function CreateSurvey() {
                       <input type="text" value={opt} required
                         onChange={(e) => updateOption(q.id, oIdx, e.target.value)}
                         className="flex-grow p-1.5 border-b focus:border-[var(--color-cyc-primary)] focus:outline-none bg-transparent" />
-                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500'}`} title="Lock Option Position">
+                      <button type="button" onClick={() => toggleLockChoice(q.id, opt)} className={`ml-2 ${(q.locked_choices || []).includes(opt) ? 'text-[var(--color-cyc-primary)]' : 'text-gray-300 hover:text-gray-500 dark:text-slate-500'}`} title="Lock Option Position">
                         {(q.locked_choices || []).includes(opt) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                       </button>
                       {q.options.length > 1 && (
-                        <button type="button" onClick={() => removeOption(q.id, oIdx)} className="text-gray-400 hover:text-red-500">&times;</button>
+                        <button type="button" onClick={() => removeOption(q.id, oIdx)} className="text-gray-400 dark:text-slate-500 hover:text-red-500">&times;</button>
                       )}
                     </div>
                   ))}
                   {q.has_other && (
                     <div className="flex items-center space-x-2 opacity-60">
                       <div className={`w-4 h-4 border border-gray-400 ${(q.type === 'multiple_choice' || q.type === 'dropdown') ? 'rounded-full' : 'rounded'}`} />
-                      <span className="text-sm text-gray-500 italic">Other: ____</span>
+                      <span className="text-sm text-gray-500 dark:text-slate-500 italic">Other: ____</span>
                     </div>
                   )}
                   <button type="button" onClick={() => addOption(q.id)} className="text-sm text-[var(--color-cyc-primary)] hover:underline mt-2 inline-block">
@@ -477,7 +477,7 @@ export default function CreateSurvey() {
               {/* Definitions Section */}
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Interactive Definitions</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Interactive Definitions</h4>
                   <button type="button" onClick={() => addDefinition(q.id)} className="text-xs text-[var(--color-cyc-primary)] hover:underline">
                     + Add Definition
                   </button>
@@ -500,7 +500,7 @@ export default function CreateSurvey() {
                           className="flex-grow p-1.5 border rounded focus:border-[var(--color-cyc-primary)] focus:outline-none text-sm resize-none"
                           rows={2}
                         />
-                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className="text-gray-400 hover:text-red-500 mt-1">
+                        <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1">
                           &times;
                         </button>
                       </div>
@@ -513,36 +513,36 @@ export default function CreateSurvey() {
           ))}
 
           {/* Add Question Controls */}
-          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
-            <p className="text-gray-500 mb-4">Add a new question to this survey</p>
+          <div className="bg-gray-50 dark:bg-slate-900/50 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center">
+            <p className="text-gray-500 dark:text-slate-500 mb-4">Add a new question to this survey</p>
             <div className="flex flex-wrap justify-center gap-3">
               <button type="button" onClick={() => addQuestion('section_header')} className="px-4 py-2 bg-yellow-50 border border-yellow-300 rounded shadow-sm hover:border-[var(--color-cyc-accent)] transition-colors text-sm font-medium text-yellow-700">
                 § Section Header
               </button>
-              <button type="button" onClick={() => addQuestion('multiple_choice')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+              <button type="button" onClick={() => addQuestion('multiple_choice')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Multiple Choice
               </button>
-              <button type="button" onClick={() => addQuestion('checkboxes')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+              <button type="button" onClick={() => addQuestion('checkboxes')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Checkboxes
               </button>
-              <button type="button" onClick={() => addQuestion('dropdown')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+              <button type="button" onClick={() => addQuestion('dropdown')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Dropdown
               </button>
-              <button type="button" onClick={() => addQuestion('rating_scale')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+              <button type="button" onClick={() => addQuestion('rating_scale')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Percentage Slider (0-100)
               </button>
-              <button type="button" onClick={() => addQuestion('likert_scale')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+              <button type="button" onClick={() => addQuestion('likert_scale')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Likert Scale (1-5)
               </button>
-              <button type="button" onClick={() => addQuestion('short_answer')} className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700">
+              <button type="button" onClick={() => addQuestion('short_answer')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Short Answer
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end pt-6 border-t border-gray-200">
-          <Link href="/admin" className="px-6 py-2 text-gray-600 hover:text-gray-900 font-medium mr-4">Cancel</Link>
+        <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-slate-700">
+          <Link href="/admin" className="px-6 py-2 text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:text-slate-100 font-medium mr-4">Cancel</Link>
           <button type="submit" disabled={submitting} className="btn-primary flex items-center">
             {submitting ? 'Saving...' : (<><Save className="w-4 h-4 mr-2" />Save &amp; Publish Survey</>)}
           </button>

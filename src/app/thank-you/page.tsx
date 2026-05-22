@@ -30,16 +30,16 @@ export default function ThankYouPage() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12 px-4">
+    <div className="flex flex-col items-center min-h-screen bg-gray-50 dark:bg-slate-900/50 py-12 px-4">
       {/* Thank You Card */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] text-center mb-12">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 p-8 md:p-12 rounded-2xl shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] text-center mb-12">
         <div className="mx-auto flex justify-center items-center w-24 h-24 bg-teal-50 rounded-full mb-6">
           <CheckCircle2 className="w-14 h-14 text-[var(--color-cyc-primary)]" />
         </div>
-        <h1 className="text-3xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] mb-6">
+        <h1 className="text-3xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-6">
           Thank You!
         </h1>
-        <p className="text-lg md:text-xl text-gray-600 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-gray-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
           Your responses have been successfully submitted. We greatly appreciate you taking the time to share your voice and help empower Canadian youth.
         </p>
       </motion.div>
@@ -47,8 +47,8 @@ export default function ThankYouPage() {
       {/* Cross-Promotion Section */}
       <div className="w-full max-w-6xl mx-auto">
         <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] mb-3">Keep Your Voice Heard</h2>
-          <p className="text-gray-600 text-lg">If you have a few more minutes, consider contributing to another active survey.</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-3">Keep Your Voice Heard</h2>
+          <p className="text-gray-600 dark:text-slate-400 text-lg">If you have a few more minutes, consider contributing to another active survey.</p>
         </div>
 
         {loading ? (
@@ -60,7 +60,7 @@ export default function ThankYouPage() {
             {surveys.map((survey, i) => (
               <motion.div key={survey.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
                 <Link href={`/survey/${survey.id}`} className="block h-full group">
-                  <div className="border border-gray-200 rounded-2xl overflow-hidden h-full flex flex-col hover:border-[var(--color-cyc-primary)] hover:shadow-xl transition-all duration-300 bg-white">
+                  <div className="border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden h-full flex flex-col hover:border-[var(--color-cyc-primary)] hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-800">
                     {survey.thumbnail_url ? (
                       <div className="h-48 w-full overflow-hidden">
                         <img src={survey.thumbnail_url} alt={survey.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -75,10 +75,10 @@ export default function ThankYouPage() {
                       <h3 className="font-bold text-xl text-gray-900 mb-3 group-hover:text-[var(--color-cyc-primary)] transition-colors line-clamp-2">
                         {survey.title}
                       </h3>
-                      <p className="text-gray-500 text-base mb-6 line-clamp-2 flex-grow leading-relaxed">
+                      <p className="text-gray-500 dark:text-slate-500 text-base mb-6 line-clamp-2 flex-grow leading-relaxed">
                         {survey.description || 'Participate in this survey to share your perspectives.'}
                       </p>
-                      <div className="flex items-center justify-between text-sm font-semibold text-gray-500 mt-auto pt-5 border-t border-gray-100">
+                      <div className="flex items-center justify-between text-sm font-semibold text-gray-500 dark:text-slate-500 mt-auto pt-5 border-t border-gray-100">
                         <span className="flex items-center text-[var(--color-cyc-primary)] bg-teal-50 px-3 py-1.5 rounded-lg">
                           <Clock className="w-4 h-4 mr-1.5" />
                           {survey.estimated_minutes} min
@@ -94,8 +94,8 @@ export default function ThankYouPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-200">
-            <p className="text-gray-500 font-medium text-lg">There are no other active surveys at the moment. Please check back later!</p>
+          <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700">
+            <p className="text-gray-500 dark:text-slate-500 font-medium text-lg">There are no other active surveys at the moment. Please check back later!</p>
           </div>
         )}
       </div>

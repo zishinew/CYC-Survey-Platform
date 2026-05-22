@@ -28,9 +28,9 @@ const RichTextRenderer = ({ text, definitions }: { text: string; definitions?: {
                 return (
                   <span key={i} className="relative inline-block group cursor-help mx-1">
                     <span className="animated-wavy-underline">{part}</span>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl z-50 text-center font-normal tracking-normal leading-normal">
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-3 bg-gray-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm rounded-lg shadow-xl z-50 text-center font-normal tracking-normal leading-normal">
                       {def.definition}
-                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></span>
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-slate-100"></span>
                     </span>
                   </span>
                 );
@@ -330,12 +330,12 @@ export default function SurveyPage() {
   if (alreadyCompleted) {
     return (
       <div className="flex-1 flex flex-col justify-center items-center px-4 w-full max-w-3xl mx-auto text-center h-full">
-        <div className="bg-white p-8 md:p-12 rounded-2xl shadow-xl border-t-4 border-t-[var(--color-cyc-primary)] max-w-2xl w-full">
+        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl p-8 md:p-12 rounded-2xl shadow-xl border border-gray-200 dark:border-white/10 max-w-2xl w-full">
           <div className="mx-auto flex justify-center items-center w-20 h-20 bg-teal-50 rounded-full mb-6">
             <CheckCircle2 className="w-12 h-12 text-[var(--color-cyc-primary)]" />
           </div>
-          <h1 className="text-3xl font-extrabold text-[var(--color-cyc-secondary)] mb-4">Already Completed</h1>
-          <p className="text-lg text-gray-600 leading-relaxed">
+          <h1 className="text-3xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-4">Already Completed</h1>
+          <p className="text-lg text-gray-600 dark:text-slate-400 dark:text-slate-300 leading-relaxed">
             You have already submitted your response for <strong>{survey.title}</strong>. Thank you for participating!
           </p>
         </div>
@@ -580,12 +580,12 @@ export default function SurveyPage() {
     return (
       <div className="flex-1 flex flex-col justify-center items-center px-4 w-full max-w-3xl mx-auto text-center h-full">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="w-full">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] mb-6 leading-tight">{survey.title}</h1>
-          <p className={`text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed text-${survey.description_alignment || 'left'}`}>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-6 leading-tight">{survey.title}</h1>
+          <p className={`text-lg sm:text-xl text-gray-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed text-${survey.description_alignment || 'left'}`}>
             {survey.description || "Share your voice and help empower Canadian youth."}
           </p>
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setHasStarted(true)}
-            className="btn-primary text-xl px-10 py-4 rounded-full shadow-xl hover:shadow-2xl transition-all flex items-center justify-center mx-auto">
+            className="btn-primary text-xl px-10 py-4 rounded-full shadow-md shadow-teal-500/5 dark:shadow-teal-400/5 hover:shadow-lg transition-all flex items-center justify-center mx-auto">
             Start Survey <ArrowRight className="w-6 h-6 ml-3" />
           </motion.button>
           <p className="text-sm text-gray-400 mt-6 font-medium">Estimated time: {survey.estimated_minutes} minutes</p>
@@ -601,12 +601,12 @@ export default function SurveyPage() {
         <div className="w-full bg-gray-200 rounded-full h-2 max-w-2xl mx-auto overflow-hidden">
           <motion.div className="bg-[var(--color-cyc-primary)] h-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5, ease: "easeOut" }} />
         </div>
-        <p className="text-xs sm:text-sm font-bold text-[var(--color-cyc-secondary)] mt-3">
+        <p className="text-xs sm:text-sm font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mt-3">
           {isEmailStep ? 'Before we begin' : (currentQuestion?.type === 'section_header' ? 'Information' : `Question ${currentStep} of ${survey.questions.length}`)}
         </p>
       </motion.div>
 
-      <div className="flex-1 flex flex-col card p-4 sm:p-8 shadow-xl border-t-4 border-t-[var(--color-cyc-accent)] relative h-auto min-h-[60vh]">
+      <div className="flex-1 flex flex-col bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-4 sm:p-8 shadow-xl relative h-auto min-h-[60vh]">
         <AnimatePresence mode="wait">
           <motion.div key={currentStep} initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}
             className={`flex-1 flex flex-col max-w-2xl mx-auto w-full pb-4 pt-4 sm:pt-8 ${currentQuestion?.type === "section_header" ? "justify-center my-auto" : "justify-start"}`}>
@@ -614,7 +614,7 @@ export default function SurveyPage() {
             {/* EMAIL STEP */}
             {isEmailStep && (
               <>
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8 text-[var(--color-cyc-secondary)] text-center leading-snug pt-4">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8 text-[var(--color-cyc-secondary)] dark:text-slate-100 text-center leading-snug pt-4">
                   What is your email address?
                 </h2>
                 <input
@@ -622,17 +622,17 @@ export default function SurveyPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-teal-50 focus:outline-none transition-all text-base sm:text-lg text-center"
+                  className="w-full p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all text-base sm:text-lg text-center"
                   placeholder="you@example.com"
                 />
-                <p className="text-xs text-gray-400 text-center mt-3">Your email will be kept confidential and is used only for tracking responses.</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500 text-center mt-3">Your email will be kept confidential and is used only for tracking responses.</p>
               </>
             )}
 
             {/* QUESTION STEPS */}
             {!isEmailStep && currentQuestion && (
               <>
-            <div className="mb-6 sm:mb-8 text-center pt-4 text-xl sm:text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] leading-snug [&_p]:mb-4 last:[&_p]:mb-0">
+            <div className="mb-6 sm:mb-8 text-center pt-4 text-xl sm:text-2xl md:text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 leading-snug [&_p]:mb-4 last:[&_p]:mb-0">
               <RichTextRenderer text={(currentQuestion.question_text || '').replace(/\n\n/g, '<br/><br/>')} definitions={opts.definitions} />
             </div>
             
@@ -641,7 +641,7 @@ export default function SurveyPage() {
               {currentQuestion.type === 'section_header' && (
                 <div className="space-y-4">
                   {opts.description && (
-                    <div className={`text-base text-gray-600 leading-relaxed text-${opts.description_alignment || 'left'}`}>
+                    <div className={`text-base text-gray-600 dark:text-slate-400 dark:text-slate-300 leading-relaxed text-${opts.description_alignment || 'left'}`}>
                       <RichTextRenderer text={opts.description.replace(/\n/g, '<br/>')} definitions={opts.definitions} />
                     </div>
                   )}
@@ -653,7 +653,7 @@ export default function SurveyPage() {
                             <img src={att.url} alt={att.name} className="rounded-lg border border-gray-200 max-w-full max-h-96 mx-auto" />
                           ) : (
                             <a href={att.url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+                              className="flex items-center p-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
                               <FileText className="w-5 h-5 text-blue-500 mr-3 flex-shrink-0" />
                               <span className="text-sm font-medium text-blue-600 truncate flex-grow">{att.name}</span>
                               <Download className="w-4 h-4 text-gray-400 ml-2 flex-shrink-0" />
@@ -672,7 +672,7 @@ export default function SurveyPage() {
                   <select
                     value={answers[currentQuestion.id] || ''}
                     onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})}
-                    className="w-full p-3 sm:p-4 border-2 border-gray-200 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-teal-50 focus:outline-none transition-all text-base sm:text-lg bg-white cursor-pointer"
+                    className="w-full p-3 sm:p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all text-base sm:text-lg bg-white dark:bg-white/5 cursor-pointer"
                   >
                     <option value="" disabled>Select an option...</option>
                     {displayChoices.map((opt: string) => (
@@ -686,24 +686,24 @@ export default function SurveyPage() {
               {currentQuestion.type === 'multiple_choice' && (
                 <div className="space-y-3 sm:space-y-4">
                   {displayChoices.map((opt: string) => (
-                    <label key={opt} className={`flex items-center p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${answers[currentQuestion.id] === opt ? 'border-[var(--color-cyc-primary)] bg-teal-50' : 'border-gray-100 hover:border-teal-200 bg-white'}`}>
+                    <label key={opt} className={`flex items-center p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${answers[currentQuestion.id] === opt ? 'border-[var(--color-cyc-primary)] bg-teal-50/50 dark:bg-[var(--color-cyc-primary)]/10 dark:border-[var(--color-cyc-primary)]' : 'border-gray-100 dark:border-white/5 hover:border-teal-200 dark:hover:border-white/15 bg-white dark:bg-white/5'}`}>
                       <input type="radio" name={currentQuestion.id} value={opt} checked={answers[currentQuestion.id] === opt}
                         onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})} className="sr-only" />
                       <div className={`w-5 h-5 rounded-full border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center ${answers[currentQuestion.id] === opt ? 'border-[var(--color-cyc-primary)]' : 'border-gray-300'}`}>
                         {answers[currentQuestion.id] === opt && <div className="w-2.5 h-2.5 bg-[var(--color-cyc-primary)] rounded-full" />}
                       </div>
-                      <span className="text-base sm:text-lg font-medium text-gray-700">{opt}</span>
+                      <span className="text-base sm:text-lg font-medium text-gray-700 dark:text-slate-200">{opt}</span>
                     </label>
                   ))}
                   {opts.has_other && (
-                    <label className={`flex items-center p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${answers[currentQuestion.id]?.startsWith('Other: ') ? 'border-[var(--color-cyc-primary)] bg-teal-50' : 'border-gray-100 hover:border-teal-200 bg-white'}`}>
+                    <label className={`flex items-center p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${answers[currentQuestion.id]?.startsWith('Other: ') ? 'border-[var(--color-cyc-primary)] bg-teal-50/50 dark:bg-[var(--color-cyc-primary)]/10 dark:border-[var(--color-cyc-primary)]' : 'border-gray-100 dark:border-white/5 hover:border-teal-200 dark:hover:border-white/15 bg-white dark:bg-white/5'}`}>
                       <input type="radio" name={currentQuestion.id} value="__other__"
                         checked={!!answers[currentQuestion.id]?.startsWith('Other: ')}
                         onChange={() => setAnswers({...answers, [currentQuestion.id]: `Other: ${otherTexts[currentQuestion.id] || ''}`})} className="sr-only" />
                       <div className={`w-5 h-5 rounded-full border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center ${!!answers[currentQuestion.id]?.startsWith('Other: ') ? 'border-[var(--color-cyc-primary)]' : 'border-gray-300'}`}>
                         {!!answers[currentQuestion.id]?.startsWith('Other: ') && <div className="w-2.5 h-2.5 bg-[var(--color-cyc-primary)] rounded-full" />}
                       </div>
-                      <span className="text-base font-medium text-gray-700 mr-2">Other:</span>
+                      <span className="text-base font-medium text-gray-700 dark:text-slate-200 mr-2">Other:</span>
                       <input type="text" value={otherTexts[currentQuestion.id] || ''}
                         onChange={(e) => {
                           setOtherTexts({...otherTexts, [currentQuestion.id]: e.target.value});
@@ -726,13 +726,13 @@ export default function SurveyPage() {
                     {answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50}%
                   </div>
                   {opts.has_calculator && refNumbers[currentQuestion.id] !== undefined && (
-                    <div className="text-lg font-bold text-[var(--color-cyc-secondary)] mb-2">
+                    <div className="text-lg font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100 mb-2">
                       {Math.round(((answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id] : 50) / 100) * (refNumbers[currentQuestion.id] || 0))} out of {refNumbers[currentQuestion.id]}
                     </div>
                   )}
                   {opts.has_calculator && (
                     <div className="mb-4 flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-600">Enter a number:</label>
+                      <label className="text-sm font-medium text-gray-600 dark:text-slate-400">Enter a number:</label>
                       <input type="number" min={0}
                         value={refNumbers[currentQuestion.id] ?? ''}
                         onChange={(e) => setRefNumbers({...refNumbers, [currentQuestion.id]: e.target.value ? Number(e.target.value) : undefined})}
@@ -766,17 +766,17 @@ export default function SurveyPage() {
                           const isChecked = currentSelected.includes(opt);
                           const isDisabled = !isChecked && maxSelections && currentSelected.length >= maxSelections;
                           return (
-                            <label key={opt} className={`flex items-center p-3 sm:p-4 border-2 rounded-xl transition-all duration-200 ${isDisabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'cursor-pointer hover:shadow-md'} ${isChecked ? 'border-[var(--color-cyc-primary)] bg-teal-50' : (!isDisabled ? 'border-gray-100 hover:border-teal-200 bg-white' : '')}`}>
+                            <label key={opt} className={`flex items-center p-3 sm:p-4 border-2 rounded-xl transition-all duration-200 ${isDisabled ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/5' : 'cursor-pointer hover:shadow-md'} ${isChecked ? 'border-[var(--color-cyc-primary)] bg-teal-50/50 dark:bg-[var(--color-cyc-primary)]/10 dark:border-[var(--color-cyc-primary)]' : (!isDisabled ? 'border-gray-100 dark:border-white/5 hover:border-teal-200 dark:hover:border-white/15 bg-white dark:bg-white/5' : '')}`}>
                               <input type="checkbox" value={opt} checked={isChecked} disabled={!!isDisabled}
                                 onChange={(e) => {
                                   if (isDisabled) return;
                                   if (e.target.checked) setAnswers({...answers, [currentQuestion.id]: [...currentSelected, opt]});
                                   else setAnswers({...answers, [currentQuestion.id]: currentSelected.filter((item: string) => item !== opt)});
                                 }} className="sr-only" />
-                              <div className={`w-6 h-6 rounded border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center transition-colors ${isChecked ? 'bg-[var(--color-cyc-primary)] border-[var(--color-cyc-primary)]' : 'border-gray-300 bg-white'}`}>
+                              <div className={`w-6 h-6 rounded border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center transition-colors ${isChecked ? 'bg-[var(--color-cyc-primary)] border-[var(--color-cyc-primary)]' : 'border-gray-300 dark:border-white/10 bg-white dark:bg-white/5'}`}>
                                 {isChecked && <CheckCircle2 className="w-4 h-4 text-white" />}
                               </div>
-                              <span className="text-base sm:text-lg font-medium text-gray-700">{opt}</span>
+                              <span className="text-base sm:text-lg font-medium text-gray-700 dark:text-slate-200">{opt}</span>
                             </label>
                           );
                         })}
@@ -785,7 +785,7 @@ export default function SurveyPage() {
                           const isChecked = !!otherVal;
                           const isDisabled = !isChecked && maxSelections && currentSelected.length >= maxSelections;
                           return (
-                            <label className={`flex items-center p-3 sm:p-4 border-2 rounded-xl transition-all duration-200 ${isDisabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : 'cursor-pointer hover:shadow-md'} ${isChecked ? 'border-[var(--color-cyc-primary)] bg-teal-50' : (!isDisabled ? 'border-gray-100 hover:border-teal-200 bg-white' : '')}`}>
+                            <label className={`flex items-center p-3 sm:p-4 border-2 rounded-xl transition-all duration-200 ${isDisabled ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/5' : 'cursor-pointer hover:shadow-md'} ${isChecked ? 'border-[var(--color-cyc-primary)] bg-teal-50/50 dark:bg-[var(--color-cyc-primary)]/10 dark:border-[var(--color-cyc-primary)]' : (!isDisabled ? 'border-gray-100 dark:border-white/5 hover:border-teal-200 dark:hover:border-white/15 bg-white dark:bg-white/5' : '')}`}>
                               <input type="checkbox" checked={isChecked} disabled={!!isDisabled}
                                 onChange={(e) => {
                                   if (isDisabled) return;
@@ -795,10 +795,10 @@ export default function SurveyPage() {
                                     setAnswers({...answers, [currentQuestion.id]: currentSelected.filter((item: string) => !item.startsWith('Other: '))});
                                   }
                                 }} className="sr-only" />
-                              <div className={`w-6 h-6 rounded border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center transition-colors ${isChecked ? 'bg-[var(--color-cyc-primary)] border-[var(--color-cyc-primary)]' : 'border-gray-300 bg-white'}`}>
+                              <div className={`w-6 h-6 rounded border-2 mr-3 sm:mr-4 flex-shrink-0 flex items-center justify-center transition-colors ${isChecked ? 'bg-[var(--color-cyc-primary)] border-[var(--color-cyc-primary)]' : 'border-gray-300 dark:border-white/10 bg-white dark:bg-white/5'}`}>
                                 {isChecked && <CheckCircle2 className="w-4 h-4 text-white" />}
                               </div>
-                              <span className="text-base font-medium text-gray-700 mr-2">Other:</span>
+                              <span className="text-base font-medium text-gray-700 dark:text-slate-200 mr-2">Other:</span>
                               <input type="text" value={otherTexts[currentQuestion.id] || ''}
                                 onChange={(e) => {
                                   setOtherTexts({...otherTexts, [currentQuestion.id]: e.target.value});
@@ -832,7 +832,7 @@ export default function SurveyPage() {
                       <label key={val} className="flex flex-col items-center cursor-pointer group relative z-10">
                         <input type="radio" name={currentQuestion.id} value={val} checked={answers[currentQuestion.id] === val}
                           onChange={() => setAnswers({...answers, [currentQuestion.id]: val})} className="sr-only" />
-                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-300 bg-white shadow-sm ${answers[currentQuestion.id] === val ? 'border-[var(--color-cyc-primary)] scale-125 shadow-md shadow-teal-100 text-[var(--color-cyc-primary)]' : 'border-gray-300 group-hover:border-teal-200 text-gray-500 group-hover:text-teal-500 group-hover:scale-110'}`}>
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-4 transition-all duration-300 bg-white dark:bg-white/5 shadow-sm ${answers[currentQuestion.id] === val ? 'border-[var(--color-cyc-primary)] scale-125 shadow-md shadow-teal-100 text-[var(--color-cyc-primary)]' : 'border-gray-300 group-hover:border-teal-200 text-gray-500 group-hover:text-teal-500 group-hover:scale-110'}`}>
                           <span className="text-base sm:text-lg font-extrabold">{val}</span>
                         </div>
                       </label>
@@ -844,7 +844,7 @@ export default function SurveyPage() {
               {/* SHORT ANSWER */}
               {currentQuestion.type === 'short_answer' && (
                 <textarea rows={4}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-teal-50 focus:outline-none transition-all resize-none text-base sm:text-lg"
+                  className="w-full p-4 border-2 border-gray-200 dark:border-slate-600 bg-transparent dark:bg-slate-900 rounded-xl focus:border-[var(--color-cyc-primary)] focus:ring-4 focus:ring-[var(--color-cyc-primary)]/20 dark:text-white focus:outline-none transition-all resize-none text-base sm:text-lg"
                   placeholder="Share your thoughts here..."
                   value={answers[currentQuestion.id] || ''}
                   onChange={(e) => setAnswers({...answers, [currentQuestion.id]: e.target.value})} />
@@ -853,13 +853,13 @@ export default function SurveyPage() {
             </>
             )}
               {!(currentQuestion?.type === 'section_header' && !opts.description && (!opts.attachments || opts.attachments.length === 0)) && (
-                <div className="flex-shrink-0 flex justify-between items-center mt-auto pt-6 border-t border-gray-100 bg-white">
+                <div className="flex-shrink-0 flex justify-between items-center mt-auto pt-6 border-t border-gray-100 dark:border-white/5 bg-transparent">
                   <button onClick={handleBack} disabled={currentStep === 0}
-                    className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-medium transition-all ${currentStep === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+                    className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-medium transition-all ${currentStep === 0 ? 'text-gray-300 dark:text-slate-600 cursor-not-allowed' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-100 hover:text-gray-900'}`}>
                     Back
                   </button>
                   <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleNext} disabled={submitting}
-                    className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl flex items-center text-base sm:text-lg font-bold shadow-lg shadow-yellow-200 hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                    className="btn-primary px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl flex items-center text-base sm:text-lg font-bold shadow-md shadow-teal-500/5 dark:shadow-teal-400/5 hover:shadow-lg hover:-translate-y-0.5 transition-all">
                     {submitting ? 'Submitting...' : (currentStep === totalSteps - 1 ? 'Finish Survey' : (isEmailStep ? 'Next' : (currentQuestion?.type === 'section_header' ? 'Continue' : 'Next')))}
                     {!submitting && currentStep !== totalSteps - 1 && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}
                     {!submitting && currentStep === totalSteps - 1 && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />}

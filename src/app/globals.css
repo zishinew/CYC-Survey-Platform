@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Force light mode everywhere by mapping the dark variant to a non-existent class */
+@variant dark (&:where(.never-use-dark-mode));
+
 @theme {
   --color-cyc-primary: #0CB7C4;
   --color-cyc-secondary: #04377E;
@@ -7,30 +10,17 @@
   --color-cyc-bg: #FFFFFF;
   --color-cyc-divider: #F3F4F6;
   --color-cyc-text-heading: #04377E;
-  --color-cyc-text-body: #0CB7C4;
+  --color-cyc-text-body: #4b5563; /* Updated to a better default body text color */
 }
 
-body {
-  background-color: var(--color-cyc-bg);
-  color: var(--color-cyc-text-body);
-}
+/* Removed forced body and heading colors to allow Tailwind dark mode utilities to work */
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  color: var(--color-cyc-text-heading);
-}
-
-/* Custom utilities that we might need */
 .btn-primary {
-  @apply bg-[var(--color-cyc-accent)] text-[var(--color-cyc-secondary)] font-semibold py-2 px-4 rounded-lg shadow hover:bg-yellow-400 transition-colors;
+  @apply bg-[#F5C518] text-[#1a1a1a] font-extrabold py-2.5 px-6 rounded-full shadow-sm hover:bg-yellow-400 hover:shadow transition-all duration-200;
 }
 
 .btn-secondary {
-  @apply bg-[var(--color-cyc-primary)] text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-teal-500 transition-colors;
+  @apply bg-transparent border border-gray-200 dark:border-white/10 text-gray-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-all duration-200;
 }
 
 .card {

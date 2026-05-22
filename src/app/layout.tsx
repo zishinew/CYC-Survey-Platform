@@ -17,7 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" style={{ fontSize: '85%' }}>
-      <body className={`${inter.className} min-h-[100dvh] w-full flex flex-col overflow-x-hidden`}>
+      <head>
+      </head>
+      <body className={`${inter.className} min-h-[100dvh] w-full flex flex-col overflow-x-hidden bg-slate-50 text-slate-800 transition-colors duration-300`}>
         <Header />
         <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col relative pb-10">
           {children}

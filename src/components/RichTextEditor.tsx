@@ -57,13 +57,13 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
   }
 
   return (
-    <div className="border border-gray-300 rounded-md overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[var(--color-cyc-primary)] focus-within:border-transparent transition-all">
+    <div className="border border-gray-300 dark:border-slate-600 rounded-md overflow-hidden bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-[var(--color-cyc-primary)] focus-within:border-transparent transition-all">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 bg-gray-50 border-b border-gray-200 p-1">
+      <div className="flex flex-wrap items-center gap-1 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 p-1">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`p-1.5 rounded hover:bg-gray-200 transition-colors ${editor.isActive('bold') ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+          className={`p-1.5 rounded hover:bg-gray-200 dark:bg-slate-600 transition-colors ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-slate-100' : 'text-gray-600 dark:text-slate-400'}`}
           title="Bold"
         >
           <Bold className="w-4 h-4" />
@@ -71,7 +71,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`p-1.5 rounded hover:bg-gray-200 transition-colors ${editor.isActive('italic') ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+          className={`p-1.5 rounded hover:bg-gray-200 dark:bg-slate-600 transition-colors ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-slate-100' : 'text-gray-600 dark:text-slate-400'}`}
           title="Italic"
         >
           <Italic className="w-4 h-4" />
@@ -79,7 +79,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={`p-1.5 rounded hover:bg-gray-200 transition-colors ${editor.isActive('underline') ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+          className={`p-1.5 rounded hover:bg-gray-200 dark:bg-slate-600 transition-colors ${editor.isActive('underline') ? 'bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-slate-100' : 'text-gray-600 dark:text-slate-400'}`}
           title="Underline"
         >
           <UnderlineIcon className="w-4 h-4" />
@@ -90,7 +90,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleHighlight({ color: '#fef08a' }).run()}
-          className={`p-1.5 rounded hover:bg-gray-200 transition-colors ${editor.isActive('highlight') ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+          className={`p-1.5 rounded hover:bg-gray-200 dark:bg-slate-600 transition-colors ${editor.isActive('highlight') ? 'bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-slate-100' : 'text-gray-600 dark:text-slate-400'}`}
           title="Highlight"
         >
           <Highlighter className="w-4 h-4" />
@@ -102,7 +102,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
           <button
             type="button"
             onClick={() => setShowColors(!showColors)}
-            className="p-1.5 rounded hover:bg-gray-200 transition-colors text-gray-600 flex items-center"
+            className="p-1.5 rounded hover:bg-gray-200 dark:bg-slate-600 transition-colors text-gray-600 dark:text-slate-400 flex items-center"
             title="Text Color"
           >
             <Palette className="w-4 h-4" />
@@ -115,7 +115,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
                 className="fixed inset-0 z-10" 
                 onClick={() => setShowColors(false)}
               ></div>
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 shadow-lg rounded p-2 flex gap-1 z-20">
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded p-2 flex gap-1 z-20">
                 {['#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#0cb7c4', '#04377e', '#a855f7'].map(color => (
                   <button
                     key={color}
@@ -124,7 +124,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
                       editor.chain().focus().setColor(color).run();
                       setShowColors(false);
                     }}
-                    className="w-5 h-5 rounded-full border border-gray-300 hover:scale-110 transition-transform"
+                    className="w-5 h-5 rounded-full border border-gray-300 dark:border-slate-600 hover:scale-110 transition-transform"
                     style={{ backgroundColor: color }}
                     title={color}
                   />
@@ -135,7 +135,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
                     editor.chain().focus().unsetColor().run();
                     setShowColors(false);
                   }}
-                  className="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 bg-white"
+                  className="w-5 h-5 rounded-full border border-gray-300 dark:border-slate-600 flex items-center justify-center hover:bg-gray-100 dark:bg-slate-700 bg-white dark:bg-slate-800"
                   title="Reset Color"
                 >
                   &times;
@@ -149,7 +149,7 @@ export const RichTextEditor = ({ value, onChange, placeholder, className = '' }:
       {/* Editor Area */}
       <div className="relative">
         {!editor.getText() && placeholder && (
-          <div className="absolute inset-y-0 left-0 px-3 py-2 text-sm text-gray-400 pointer-events-none select-none">
+          <div className="absolute inset-y-0 left-0 px-3 py-2 text-sm text-gray-400 dark:text-slate-500 pointer-events-none select-none">
             {placeholder}
           </div>
         )}
