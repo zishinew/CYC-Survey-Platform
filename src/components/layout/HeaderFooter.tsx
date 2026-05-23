@@ -33,15 +33,15 @@ export function Header() {
               alt="CYC Logo"
               width={250}
               height={70}
-              className="object-contain h-full w-auto dark:brightness-110"
+              className="object-contain h-full w-auto max-w-[140px] sm:max-w-[200px] md:max-w-[250px] dark:brightness-110"
               priority
             />
           </Link>
-          <nav className="flex items-center space-x-6 relative">
+          <nav className="flex items-center space-x-2 sm:space-x-6 relative">
             {language !== 'en' && (
               <button
                 onClick={() => setLanguage('en')}
-                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
+                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors"
               >
                 English
               </button>
@@ -49,7 +49,7 @@ export function Header() {
             {language !== 'fr' && (
               <button
                 onClick={() => setLanguage('fr')}
-                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
+                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors"
               >
                 Français
               </button>
@@ -57,7 +57,7 @@ export function Header() {
             {language !== 'zh' && (
               <button
                 onClick={() => setLanguage('zh')}
-                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-sm font-bold uppercase tracking-wider transition-colors"
+                className="text-gray-700 hover:text-[var(--color-cyc-secondary)] text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors"
               >
                 中文
               </button>

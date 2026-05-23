@@ -230,7 +230,7 @@ export default function Home() {
           }}
         />
         <motion.h1 
-          className="text-4xl md:text-6xl lg:text-7xl font-black text-[#04377E] tracking-tight leading-[1.0] mb-4 font-inter uppercase"
+          className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-[#04377E] tracking-tight leading-[1.0] mb-4 font-inter uppercase"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: showIntro ? 0 : 1, y: showIntro ? 20 : 0 }}
           transition={{ duration: 1.0, delay: 0.3 }}
@@ -277,7 +277,7 @@ export default function Home() {
             return (
               <div
                 key={item.id}
-                className="absolute w-[300px] md:w-[420px] lg:w-[500px] cursor-pointer perspective-[1000px]"
+                className="absolute w-[280px] sm:w-[320px] md:w-[420px] lg:w-[500px] cursor-pointer perspective-[1000px]"
                 style={{ transform: `translateX(${x}px) translateY(${yOff}px) scale(${sc}) rotateZ(${rotZ}deg) rotateX(${rotX}deg)`, zIndex: zI }}
                 onMouseEnter={() => handleHover(idx, STEP)}
                 onMouseLeave={handleLeave}

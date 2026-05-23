@@ -161,7 +161,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 sm:gap-0">
         <div>
           <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Dashboard Overview</h1>
           <p className="text-gray-500 dark:text-slate-500 mt-1">Manage your surveys and view engagement metrics.</p>
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 dark:bg-slate-900/50">
             <tr>

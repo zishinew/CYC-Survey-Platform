@@ -470,7 +470,7 @@ export default function EditSurvey() {
 
   return (
     <div className="max-w-4xl mx-auto py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 sm:gap-0">
         <div className="flex items-center">
           <Link href="/admin" className="text-gray-500 dark:text-slate-500 hover:text-[var(--color-cyc-secondary)] dark:text-slate-100 mr-4">
             <ArrowLeft className="w-5 h-5" />
@@ -607,7 +607,7 @@ export default function EditSurvey() {
         </div>
 
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
             <h2 className="text-xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Questions</h2>
           </div>
           
@@ -654,9 +654,9 @@ export default function EditSurvey() {
                   </div>
                 </div>
 
-                <div className={`flex items-center space-x-4 mb-4 text-sm text-gray-600 dark:text-slate-400 ${language !== 'en' || isLocked ? 'hidden' : ''}`}>
+                <div className={`flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4 text-sm text-gray-600 dark:text-slate-400 ${language !== 'en' || isLocked ? 'hidden' : ''}`}>
                   
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                   <label className="flex items-center cursor-pointer text-sm text-gray-600 dark:text-slate-400">
                     <input type="checkbox"
                       checked={q.is_required}
