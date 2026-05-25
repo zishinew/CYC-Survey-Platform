@@ -615,8 +615,14 @@ async def submit_response(survey_id: str, submission: ResponseSubmission):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/surveys/{survey_id}/results")
-async def get_survey_results(survey_id: str):
-    """Get all responses and answers for a survey, grouped by session."""
+async def get_survey_results(
+    survey_id: str,
+    page: int = 1,
+    limit: int = 1,
+    filter_failed: bool = False,
+    mode: str = "individual"
+):
+    """Get survey results with support for pagination, filtering, and sampling."""
     try:
         # Fetch survey with questions
         survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
@@ -627,16 +633,55 @@ async def get_survey_results(survey_id: str):
         questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
         questions = questions_res.data
 
-        # Fetch all sessions for this survey
-        sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True).execute()
-        sessions = sessions_res.data
-
-        # Fetch all answers for all sessions in one query
-        session_ids = [s["id"] for s in sessions]
-        all_answers = []
-        if session_ids:
-            answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
-            all_answers = answers_res.data
+        if mode == "summary":
+            # Summary Mode: Fetch ALL completed sessions using range pagination to bypass Supabase limits
+            sessions = []
+            offset = 0
+            batch_size = 1000
+            while True:
+                sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).eq("is_valid", True).order("completed_at", desc=True).range(offset, offset + batch_size - 1).execute()
+                if not sessions_res.data:
+                    break
+                sessions.extend(sessions_res.data)
+                if len(sessions_res.data) < batch_size:
+                    break
+                offset += batch_size
+                
+            total_count = len(sessions)
+            
+            # Since there can be up to 1000 sessions, batch fetch answers to avoid memory/roundtrip limits
+            session_ids = [s["id"] for s in sessions]
+            all_answers = []
+            if session_ids:
+                batch_size = 200
+                for i in range(0, len(session_ids), batch_size):
+                    sub_ids = session_ids[i:i+batch_size]
+                    ans_res = supabase.table("answers").select("*").in_("session_id", sub_ids).execute()
+                    if ans_res.data:
+                        all_answers.extend(ans_res.data)
+        else:
+            # Individual Mode: paginated, possibly filtered by failed attention checks
+            sessions_query = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True)
+            
+            if filter_failed:
+                sessions_query = sessions_query.gt("attention_check_failures", 0)
+                
+            # Get the exact count of filtered items
+            count_res = sessions_query.execute()
+            total_count = len(count_res.data) if count_res.data else 0
+            
+            # Fetch only the single page records
+            offset = (page - 1) * limit
+            paginated_query = sessions_query.range(offset, offset + limit - 1)
+            sessions_res = paginated_query.execute()
+            sessions = sessions_res.data or []
+            
+            # Fetch answers only for the paginated session IDs
+            session_ids = [s["id"] for s in sessions]
+            all_answers = []
+            if session_ids:
+                ans_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+                all_answers = ans_res.data or []
 
         # Group answers by session
         answers_by_session = {}
@@ -666,7 +711,7 @@ async def get_survey_results(survey_id: str):
             "survey": survey,
             "questions": questions,
             "responses": responses,
-            "total_responses": len(sessions),
+            "total_responses": total_count,
             "referral_breakdown": referral_counts
         }
     except HTTPException:
