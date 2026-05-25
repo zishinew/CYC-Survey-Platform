@@ -10,6 +10,7 @@ import random
 from datetime import datetime
 import io
 import traceback
+import math
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
@@ -600,11 +601,47 @@ async def submit_response(survey_id: str, submission: ResponseSubmission):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def calculate_median(arr):
+    if not arr: return 0
+    s = sorted(arr)
+    mid = len(s) // 2
+    return s[mid] if len(s) % 2 != 0 else (s[mid - 1] + s[mid]) / 2.0
+
+def calculate_std_dev(arr, mean):
+    if len(arr) < 2: return 0
+    variance = sum((x - mean) ** 2 for x in arr) / (len(arr) - 1)
+    return math.sqrt(variance)
+
+def calculate_quartiles(arr):
+    if not arr: return {"q1": 0, "q3": 0, "iqr": 0}
+    s = sorted(arr)
+    mid = len(s) // 2
+    lower_half = s[:mid]
+    upper_half = s[mid:] if len(s) % 2 == 0 else s[mid+1:]
+    q1 = calculate_median(lower_half)
+    q3 = calculate_median(upper_half)
+    return {"q1": q1, "q3": q3, "iqr": q3 - q1}
+
+def find_outliers(arr, q1, q3, iqr):
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+    return [x for x in arr if x < lower or x > upper]
+
+def calculate_mode(counts):
+    max_val = 0
+    modes = []
+    for k, v in counts.items():
+        if v > max_val:
+            max_val = v
+            modes = [k]
+        elif v == max_val and max_val > 0:
+            modes.append(k)
+    return {"modes": modes, "count": max_val} if modes else None
+
 @app.get("/api/surveys/{survey_id}/results")
 async def get_survey_results(survey_id: str):
-    """Get all responses and answers for a survey, grouped by session."""
+    """Get survey metadata and basic stats (no raw answers)."""
     try:
-        # Fetch survey with questions
         survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
         if not survey_res.data:
             raise HTTPException(status_code=404, detail="Survey not found")
@@ -613,30 +650,60 @@ async def get_survey_results(survey_id: str):
         questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
         questions = questions_res.data
 
-        # Fetch all sessions for this survey
-        sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True).execute()
+        # Get total responses efficiently
+        sessions_count_res = supabase.table("response_sessions").select("id", count="exact").eq("survey_id", survey_id).execute()
+        total_responses = sessions_count_res.count if hasattr(sessions_count_res, 'count') else 0
+
+        # Get referral counts efficiently
+        referrals_res = supabase.table("response_sessions").select("referral_source").eq("survey_id", survey_id).execute()
+        referral_counts = {}
+        for row in referrals_res.data:
+            ref = row.get("referral_source") or "Direct"
+            referral_counts[ref] = referral_counts.get(ref, 0) + 1
+
+        return {
+            "survey": survey,
+            "questions": questions,
+            "total_responses": total_responses,
+            "referral_breakdown": referral_counts
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/surveys/{survey_id}/responses/paginated")
+async def get_survey_responses_paginated(survey_id: str, offset: int = 0, limit: int = 1, filter_failed: bool = False):
+    """Fetch individual responses with pagination."""
+    try:
+        query = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True)
+        if filter_failed:
+            query = query.gt("attention_check_failures", 0)
+            
+        sessions_res = query.range(offset, offset + limit - 1).execute()
         sessions = sessions_res.data
 
-        # Fetch all answers for all sessions efficiently using an inner join (bypasses URL length limits)
-        all_answers = []
-        if sessions:
-            answers_res = supabase.table("answers").select("*, response_sessions!inner(survey_id)").eq("response_sessions.survey_id", survey_id).execute()
-            all_answers = answers_res.data
+        if not sessions:
+            return {"responses": [], "total": 0}
+            
+        # Get count
+        count_query = supabase.table("response_sessions").select("id", count="exact").eq("survey_id", survey_id)
+        if filter_failed:
+            count_query = count_query.gt("attention_check_failures", 0)
+        total = count_query.execute().count
 
-        # Group answers by session
+        session_ids = [s["id"] for s in sessions]
+        answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+        
         answers_by_session = {}
-        for a in all_answers:
+        for a in answers_res.data:
             sid = a["session_id"]
             if sid not in answers_by_session:
                 answers_by_session[sid] = []
             answers_by_session[sid].append(a)
 
-        # Build response objects
         responses = []
-        referral_counts = {}
         for s in sessions:
-            ref = s.get("referral_source") or "Direct"
-            referral_counts[ref] = referral_counts.get(ref, 0) + 1
             responses.append({
                 "session_id": s["id"],
                 "completed_at": s.get("completed_at"),
@@ -646,17 +713,136 @@ async def get_survey_results(survey_id: str):
                 "is_valid": s.get("is_valid", True),
                 "answers": answers_by_session.get(s["id"], [])
             })
-
-        return {
-            "survey": survey,
-            "questions": questions,
-            "responses": responses,
-            "total_responses": len(sessions),
-            "referral_breakdown": referral_counts
-        }
-    except HTTPException:
-        raise
+            
+        return {"responses": responses, "total": total}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/surveys/{survey_id}/summary")
+async def get_survey_summary(survey_id: str):
+    """Calculate and return aggregate summary statistics for all questions on the backend."""
+    try:
+        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
+        questions = questions_res.data
+
+        sessions = []
+        page_size = 10000
+        start = 0
+        while True:
+            chunk = supabase.table("response_sessions").select("id, is_valid, weight").eq("survey_id", survey_id).range(start, start + page_size - 1).execute().data
+            if not chunk: break
+            sessions.extend(chunk)
+            if len(chunk) < page_size: break
+            start += page_size
+
+        valid_sessions = {s["id"]: s.get("weight", 1.0) for s in sessions if s.get("is_valid") is not False}
+
+        all_answers = []
+        start = 0
+        while True:
+            chunk = supabase.table("answers").select("*, response_sessions!inner(survey_id)").eq("response_sessions.survey_id", survey_id).range(start, start + page_size - 1).execute().data
+            if not chunk: break
+            all_answers.extend(chunk)
+            if len(chunk) < page_size: break
+            start += page_size
+
+        answers_by_question = {}
+        for a in all_answers:
+            sid = a["session_id"]
+            if sid in valid_sessions:
+                qid = a["question_id"]
+                if qid not in answers_by_question: answers_by_question[qid] = []
+                a["weight"] = valid_sessions[sid]
+                answers_by_question[qid].append(a)
+
+        stats = {}
+        for q in questions:
+            qid = q["id"]
+            q_type = q["type"]
+            ans = answers_by_question.get(qid, [])
+            
+            if q_type in ["multiple_choice", "dropdown"]:
+                counts = {}
+                for a in ans:
+                    if a.get("answer_text"):
+                        txt = a["answer_text"]
+                        counts[txt] = counts.get(txt, 0) + 1
+                mode_data = calculate_mode(counts)
+                stats[qid] = {
+                    "counts": counts,
+                    "sample_size": len(ans),
+                    "mode_data": mode_data
+                }
+            elif q_type == "checkboxes":
+                counts = {}
+                total_weighted = 0
+                for a in ans:
+                    total_weighted += a.get("weight", 1.0)
+                    opts = a.get("answer_options")
+                    if opts:
+                        for o in opts:
+                            counts[o] = counts.get(o, 0) + a.get("weight", 1.0)
+                mode_data = calculate_mode(counts)
+                stats[qid] = {
+                    "counts": counts,
+                    "total_weighted": total_weighted,
+                    "sample_size": len(ans),
+                    "mode_data": mode_data
+                }
+            elif q_type == "rating_scale":
+                nums_weights = [(a["answer_numeric"], a.get("weight", 1.0)) for a in ans if a.get("answer_numeric") is not None]
+                nums = [x[0] for x in nums_weights]
+                total_w = sum(x[1] for x in nums_weights)
+                mean = sum(x[0] * x[1] for x in nums_weights) / total_w if total_w > 0 else 0
+                avg = round(mean, 1) if nums else None
+                median = calculate_median(nums)
+                std_dev = calculate_std_dev(nums, mean)
+                variance = std_dev ** 2
+                q_vals = calculate_quartiles(nums)
+                outliers = find_outliers(nums, q_vals["q1"], q_vals["q3"], q_vals["iqr"])
+                
+                stats[qid] = {
+                    "sample_size": len(nums),
+                    "avg": avg,
+                    "median": median,
+                    "std_dev": std_dev,
+                    "variance": variance,
+                    "min": min(nums) if nums else 0,
+                    "max": max(nums) if nums else 0,
+                    "quartiles": q_vals,
+                    "outliers": outliers
+                }
+            elif q_type == "likert_scale":
+                counts = {1:0, 2:0, 3:0, 4:0, 5:0}
+                for a in ans:
+                    val = a.get("answer_numeric")
+                    if val is not None and val in counts:
+                        counts[val] += 1
+                nums = [a.get("answer_numeric") for a in ans if a.get("answer_numeric") is not None]
+                mean = sum(nums) / len(nums) if nums else 0
+                avg = round(mean, 1) if nums else None
+                median = round(calculate_median(nums)) if nums else 0
+                std_dev = calculate_std_dev(nums, mean)
+                mode_data = calculate_mode(counts)
+                
+                stats[qid] = {
+                    "counts": counts,
+                    "sample_size": len(nums),
+                    "avg": avg,
+                    "median": median,
+                    "std_dev": std_dev,
+                    "mode_data": mode_data
+                }
+            elif q_type == "short_answer":
+                texts = [a.get("answer_text") for a in ans if a.get("answer_text")]
+                stats[qid] = {
+                    "texts": texts[:100]
+                }
+                
+        return stats
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/surveys/{survey_id}/responses")
