@@ -9,6 +9,7 @@ import string
 import random
 from datetime import datetime
 import io
+import traceback
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
@@ -500,29 +501,14 @@ async def create_session(survey_id: str, body: SessionCreate):
 async def upsert_answer(session_id: str, body: AnswerUpsert):
     """Save or update a single answer for a session (auto-save on Next)."""
     try:
-        # Check if answer already exists for this session + question
-        existing = supabase.table("answers").select("id").eq(
-            "session_id", session_id
-        ).eq("question_id", body.question_id).execute()
-
-        if existing.data:
-            # Update existing
-            supabase.table("answers").update({
-                "answer_text": body.answer_text,
-                "answer_numeric": body.answer_numeric,
-                "answer_options": body.answer_options,
-                "time_spent": body.time_spent
-            }).eq("id", existing.data[0]["id"]).execute()
-        else:
-            # Insert new
-            supabase.table("answers").insert({
-                "session_id": session_id,
-                "question_id": body.question_id,
-                "answer_text": body.answer_text,
-                "answer_numeric": body.answer_numeric,
-                "answer_options": body.answer_options,
-                "time_spent": body.time_spent
-            }).execute()
+        supabase.table("answers").upsert({
+            "session_id": session_id,
+            "question_id": body.question_id,
+            "answer_text": body.answer_text,
+            "answer_numeric": body.answer_numeric,
+            "answer_options": body.answer_options,
+            "time_spent": body.time_spent
+        }, on_conflict="session_id,question_id").execute()
 
         return {"status": "saved"}
     except Exception as e:
@@ -631,11 +617,10 @@ async def get_survey_results(survey_id: str):
         sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True).execute()
         sessions = sessions_res.data
 
-        # Fetch all answers for all sessions in one query
-        session_ids = [s["id"] for s in sessions]
+        # Fetch all answers for all sessions efficiently using an inner join (bypasses URL length limits)
         all_answers = []
-        if session_ids:
-            answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+        if sessions:
+            answers_res = supabase.table("answers").select("*, response_sessions!inner(survey_id)").eq("response_sessions.survey_id", survey_id).execute()
             all_answers = answers_res.data
 
         # Group answers by session
