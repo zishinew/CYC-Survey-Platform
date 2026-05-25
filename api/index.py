@@ -827,6 +827,7 @@ def _gather_survey_data(survey_id: str):
                     profile["answers"][q_text] = a["answer_options"]
         respondent_profiles.append(profile)
 
+    aggregated_summary = []
     questions_summary = []
     for q in questions:
         if q["type"] == "section_header":
@@ -840,7 +841,41 @@ def _gather_survey_data(survey_id: str):
                 q_info["choices"] = opts
         questions_summary.append(q_info)
 
-    return survey, questions_summary, respondent_profiles
+        # Build aggregation per question
+        q_agg = {"question": q["question_text"], "type": q["type"], "total_answers": 0}
+        answers_for_q = [a for a in all_answers if a["question_id"] == q["id"]]
+        q_agg["total_answers"] = len(answers_for_q)
+
+        if q["type"] in ["multiple_choice", "checkboxes", "rating_scale", "likert_scale"]:
+            counts = {}
+            for a in answers_for_q:
+                vals = []
+                if q["type"] == "checkboxes" and a.get("answer_options"):
+                    vals = a["answer_options"]
+                    if not isinstance(vals, list):
+                        vals = [vals]
+                elif a.get("answer_text"):
+                    vals = [a["answer_text"]]
+                elif a.get("answer_numeric") is not None:
+                    vals = [str(a["answer_numeric"])]
+                
+                for v in vals:
+                    counts[v] = counts.get(v, 0) + 1
+            q_agg["distribution"] = counts
+        elif q["type"] == "short_answer":
+            texts = [a["answer_text"] for a in answers_for_q if a.get("answer_text")]
+            if len(texts) > 50:
+                import random
+                texts = random.sample(texts, 50)
+            q_agg["sample_responses"] = texts
+        aggregated_summary.append(q_agg)
+
+    # Sample respondents to a max of 200 to prevent token limits on large datasets
+    if len(respondent_profiles) > 200:
+        import random
+        respondent_profiles = random.sample(respondent_profiles, 200)
+
+    return survey, questions_summary, respondent_profiles, aggregated_summary, len(sessions)
 
 
 async def _call_gemini(prompt: str, survey_id: str, total_respondents: int):
@@ -900,13 +935,13 @@ async def handle_ai_analysis(survey_id: str, analysis_type: str, force_refresh: 
         except Exception as e:
             print(f"Warning: Failed to read AI cache: {e}")
 
-    survey, questions_summary, profiles = _gather_survey_data(survey_id)
-    if not profiles:
+    survey, questions_summary, profiles, aggregated_summary, total_respondents = _gather_survey_data(survey_id)
+    if total_respondents < 3:
         raise HTTPException(status_code=400, detail="Not enough responses for AI analysis.")
 
-    prompt = _base_context(survey, questions_summary, profiles) + prompt_suffix
+    prompt = _base_context(survey, questions_summary, profiles, aggregated_summary, total_respondents) + prompt_suffix
     
-    analysis = await _call_gemini(prompt, survey_id, len(profiles))
+    analysis = await _call_gemini(prompt, survey_id, total_respondents)
     
     # Save to cache
     try:
@@ -931,18 +966,21 @@ async def handle_ai_analysis(survey_id: str, analysis_type: str, force_refresh: 
     return analysis
 
 
-def _base_context(survey, questions_summary, respondent_profiles):
+def _base_context(survey, questions_summary, respondent_profiles, aggregated_summary, total_respondents):
     """Build the shared context block for all prompts."""
     return f"""You are an expert policy research analyst working for a Canadian youth advocacy organization called CYC (Canadian Youth Cabinet).
 
 Survey: "{survey['title']}"
 Description: {survey.get('description', 'N/A')}
-Total respondents: {len(respondent_profiles)}
+Total respondents: {total_respondents}
 
 Questions asked:
 {json_module.dumps(questions_summary, indent=2)}
 
-Respondent data (each respondent's answers):
+Aggregated Survey Data (Exact distributions and counts across ALL {total_respondents} respondents):
+{json_module.dumps(aggregated_summary, indent=2)}
+
+Representative Sample of Respondent Profiles (Sampled {len(respondent_profiles)} respondents to show correlations and individual answer combinations):
 {json_module.dumps(respondent_profiles, indent=2)}"""
 
 
