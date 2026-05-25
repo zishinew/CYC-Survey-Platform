@@ -77,6 +77,17 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (showIntro) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showIntro]);
+
+  useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 640) {
         setCarouselConfig({
@@ -188,18 +199,16 @@ export default function Home() {
     return { ...item, displayTitle, displayDescription };
   });
   const items = [...baseItems];
-  if (!isSingleActiveSurvey) {
-    while (items.length < 3) {
-      items.push({
-        id: `coming-soon-${items.length}`,
-        title: t('More Surveys Coming Soon'),
-        description: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
-        displayTitle: t('More Surveys Coming Soon'),
-        displayDescription: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
-        estimated_minutes: '--',
-        isComingSoon: true
-      });
-    }
+  while (items.length < 3) {
+    items.push({
+      id: `coming-soon-${items.length}`,
+      title: t('More Surveys Coming Soon'),
+      description: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
+      displayTitle: t('More Surveys Coming Soon'),
+      displayDescription: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
+      estimated_minutes: '--',
+      isComingSoon: true
+    });
   }
 
   const STEP = 360 / Math.max(items.length, 1);
@@ -221,7 +230,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex-1 w-full min-h-[calc(100vh-80px)] flex flex-col items-center px-6 relative bg-slate-50 overflow-x-hidden">
+    <div className={`flex-1 w-full min-h-[calc(100vh-80px)] flex flex-col items-center px-6 relative bg-slate-50 overflow-x-hidden ${showIntro ? 'max-h-[calc(100vh-80px)] overflow-y-hidden' : ''}`}>
 
       {/* Background decorations */}
       {decos.map((d, i) => (
