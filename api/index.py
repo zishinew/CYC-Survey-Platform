@@ -9,45 +9,6 @@ import string
 import random
 from datetime import datetime
 import io
-import math
-from statistics import median
-
-# --- STATS MATH HELPERS ---
-def calculate_median(arr):
-    if not arr: return 0
-    return median(arr)
-
-def calculate_std_dev(arr, mean):
-    if len(arr) < 2: return 0
-    variance = sum((x - mean) ** 2 for x in arr) / (len(arr) - 1)
-    return math.sqrt(variance)
-
-def calculate_quartiles(arr):
-    if not arr: return {"q1": 0, "q3": 0, "iqr": 0}
-    sorted_arr = sorted(arr)
-    mid = len(sorted_arr) // 2
-    lower_half = sorted_arr[:mid]
-    upper_half = sorted_arr[mid if len(sorted_arr) % 2 == 0 else mid + 1:]
-    q1 = calculate_median(lower_half)
-    q3 = calculate_median(upper_half)
-    return {"q1": q1, "q3": q3, "iqr": q3 - q1}
-
-def find_outliers(arr, q1, q3, iqr):
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
-    return [x for x in arr if x < lower_bound or x > upperBound]
-
-def calculate_mode(counts):
-    max_val = 0
-    modes = []
-    for k, v in counts.items():
-        if v > max_val:
-            max_val = v
-            modes = [k]
-        elif v == max_val and max_val > 0:
-            modes.append(k)
-    return {"modes": modes, "count": max_val} if modes else None
-
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
@@ -692,109 +653,12 @@ async def get_survey_results(
             session_ids = [s["id"] for s in sessions]
             all_answers = []
             if session_ids:
-                batch_size_ans = 200
-                for i in range(0, len(session_ids), batch_size_ans):
-                    sub_ids = session_ids[i:i+batch_size_ans]
+                batch_size = 200
+                for i in range(0, len(session_ids), batch_size):
+                    sub_ids = session_ids[i:i+batch_size]
                     ans_res = supabase.table("answers").select("*").in_("session_id", sub_ids).execute()
                     if ans_res.data:
                         all_answers.extend(ans_res.data)
-                        
-            # Build a lookup for session weights
-            session_weights = {s["id"]: s.get("weight", 1.0) for s in sessions}
-
-            # Group answers by question for summary stats
-            answers_by_question = {}
-            for a in all_answers:
-                qid = a["question_id"]
-                if qid not in answers_by_question:
-                    answers_by_question[qid] = []
-                answers_by_question[qid].append(a)
-
-            summary_stats = {}
-            for q in questions:
-                qid = q["id"]
-                qtype = q["type"]
-                q_answers = answers_by_question.get(qid, [])
-                
-                if qtype in ["multiple_choice", "dropdown"]:
-                    opts = q.get("options", [])
-                    if isinstance(opts, dict):
-                        opts = opts.get("choices", [])
-                    counts = {opt: 0 for opt in opts}
-                    for a in q_answers:
-                        ans_text = a.get("answer_text")
-                        if ans_text and ans_text in counts:
-                            counts[ans_text] += 1
-                    summary_stats[qid] = {
-                        "sample_size": len(q_answers),
-                        "counts": counts,
-                        "modeData": calculate_mode(counts)
-                    }
-                elif qtype == "checkboxes":
-                    opts = q.get("options", [])
-                    if isinstance(opts, dict):
-                        opts = opts.get("choices", [])
-                    counts = {opt: 0 for opt in opts}
-                    total_weighted = 0
-                    for a in q_answers:
-                        weight = session_weights.get(a["session_id"], 1.0)
-                        total_weighted += weight
-                        ans_opts = a.get("answer_options")
-                        if ans_opts:
-                            for sel in ans_opts:
-                                if sel in counts:
-                                    counts[sel] += weight
-                    summary_stats[qid] = {
-                        "sample_size": len(q_answers),
-                        "total_weighted": total_weighted,
-                        "counts": counts,
-                        "modeData": calculate_mode(counts)
-                    }
-                elif qtype in ["rating_scale", "likert_scale"]:
-                    nums_and_weights = []
-                    for a in q_answers:
-                        n = a.get("answer_numeric")
-                        if n is not None:
-                            w = session_weights.get(a["session_id"], 1.0)
-                            nums_and_weights.append((n, w))
-                    nums = [x[0] for x in nums_and_weights]
-                    total_w = sum(x[1] for x in nums_and_weights)
-                    mean = sum(x[0]*x[1] for x in nums_and_weights) / total_w if total_w > 0 else 0
-                    median_val = calculate_median(nums)
-                    std_dev = calculate_std_dev(nums, mean)
-                    quartiles = calculate_quartiles(nums)
-                    outliers = find_outliers(nums, quartiles["q1"], quartiles["q3"], quartiles["iqr"])
-                    
-                    counts = {}
-                    for n in nums:
-                        counts[n] = counts.get(n, 0) + 1
-                        
-                    summary_stats[qid] = {
-                        "sample_size": len(nums),
-                        "mean": mean,
-                        "median": median_val,
-                        "std_dev": std_dev,
-                        "variance": std_dev ** 2,
-                        "min": min(nums) if nums else 0,
-                        "max": max(nums) if nums else 0,
-                        "quartiles": quartiles,
-                        "outliers": outliers,
-                        "counts": counts,
-                        "modeData": calculate_mode(counts)
-                    }
-
-            referral_counts = {}
-            for s in sessions:
-                ref = s.get("referral_source") or "Direct"
-                referral_counts[ref] = referral_counts.get(ref, 0) + 1
-
-            return {
-                "survey": survey,
-                "questions": questions,
-                "summary_stats": summary_stats,
-                "total_responses": total_count,
-                "referral_breakdown": referral_counts
-            }
         else:
             # Individual Mode: paginated, possibly filtered by failed attention checks
             sessions_query = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).order("completed_at", desc=True)
@@ -819,37 +683,37 @@ async def get_survey_results(
                 ans_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
                 all_answers = ans_res.data or []
 
-            # Group answers by session
-            answers_by_session = {}
-            for a in all_answers:
-                sid = a["session_id"]
-                if sid not in answers_by_session:
-                    answers_by_session[sid] = []
-                answers_by_session[sid].append(a)
+        # Group answers by session
+        answers_by_session = {}
+        for a in all_answers:
+            sid = a["session_id"]
+            if sid not in answers_by_session:
+                answers_by_session[sid] = []
+            answers_by_session[sid].append(a)
 
-            # Build response objects
-            responses = []
-            referral_counts = {}
-            for s in sessions:
-                ref = s.get("referral_source") or "Direct"
-                referral_counts[ref] = referral_counts.get(ref, 0) + 1
-                responses.append({
-                    "session_id": s["id"],
-                    "completed_at": s.get("completed_at"),
-                    "referral_source": s.get("referral_source"),
-                    "attention_check_failures": s.get("attention_check_failures", 0),
-                    "weight": s.get("weight", 1.0),
-                    "is_valid": s.get("is_valid", True),
-                    "answers": answers_by_session.get(s["id"], [])
-                })
+        # Build response objects
+        responses = []
+        referral_counts = {}
+        for s in sessions:
+            ref = s.get("referral_source") or "Direct"
+            referral_counts[ref] = referral_counts.get(ref, 0) + 1
+            responses.append({
+                "session_id": s["id"],
+                "completed_at": s.get("completed_at"),
+                "referral_source": s.get("referral_source"),
+                "attention_check_failures": s.get("attention_check_failures", 0),
+                "weight": s.get("weight", 1.0),
+                "is_valid": s.get("is_valid", True),
+                "answers": answers_by_session.get(s["id"], [])
+            })
 
-            return {
-                "survey": survey,
-                "questions": questions,
-                "responses": responses,
-                "total_responses": total_count,
-                "referral_breakdown": referral_counts
-            }
+        return {
+            "survey": survey,
+            "questions": questions,
+            "responses": responses,
+            "total_responses": total_count,
+            "referral_breakdown": referral_counts
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -980,7 +844,7 @@ class AIAnalysisRequest(BaseModel):
     force_refresh: bool = False
 
 def _gather_survey_data(survey_id: str):
-    """Shared helper: gather all survey data and compute summary stats for AI analysis."""
+    """Shared helper: gather all survey data for AI analysis."""
     survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
     if not survey_res.data:
         raise HTTPException(status_code=404, detail="Survey not found")
@@ -989,91 +853,45 @@ def _gather_survey_data(survey_id: str):
     questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
     questions = questions_res.data
 
-    sessions = []
-    offset = 0
-    batch_size = 1000
-    while True:
-        sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).eq("is_valid", True).order("completed_at", desc=True).range(offset, offset + batch_size - 1).execute()
-        if not sessions_res.data:
-            break
-        sessions.extend(sessions_res.data)
-        if len(sessions_res.data) < batch_size:
-            break
-        offset += batch_size
+    sessions_res = supabase.table("response_sessions").select("*").eq("survey_id", survey_id).eq("is_completed", True).execute()
+    # Filter out invalid sessions
+    sessions = [s for s in sessions_res.data if s.get("is_valid", True) is not False]
 
-    total_count = len(sessions)
-    if total_count < 3:
+    if len(sessions) < 3:
         raise HTTPException(status_code=400, detail="Need at least 3 completed responses for AI analysis.")
 
     session_ids = [s["id"] for s in sessions]
-    all_answers = []
-    if session_ids:
-        batch_size_ans = 200
-        for i in range(0, len(session_ids), batch_size_ans):
-            sub_ids = session_ids[i:i+batch_size_ans]
-            ans_res = supabase.table("answers").select("*").in_("session_id", sub_ids).execute()
-            if ans_res.data:
-                all_answers.extend(ans_res.data)
+    answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
+    all_answers = answers_res.data
 
-    session_weights = {s["id"]: s.get("weight", 1.0) for s in sessions}
-
-    answers_by_question = {}
+    q_map = {q["id"]: q for q in questions}
+    answers_by_session = {}
     for a in all_answers:
-        qid = a["question_id"]
-        if qid not in answers_by_question:
-            answers_by_question[qid] = []
-        answers_by_question[qid].append(a)
+        sid = a["session_id"]
+        if sid not in answers_by_session:
+            answers_by_session[sid] = []
+        answers_by_session[sid].append(a)
 
-    summary_stats = {}
-    for q in questions:
-        qid = q["id"]
-        qtype = q["type"]
-        q_answers = answers_by_question.get(qid, [])
-        
-        if qtype in ["multiple_choice", "dropdown"]:
-            opts = q.get("options", [])
-            if isinstance(opts, dict):
-                opts = opts.get("choices", [])
-            counts = {opt: 0 for opt in opts}
-            for a in q_answers:
-                ans_text = a.get("answer_text")
-                if ans_text and ans_text in counts:
-                    counts[ans_text] += 1
-            summary_stats[qid] = {"counts": counts}
-        elif qtype == "checkboxes":
-            opts = q.get("options", [])
-            if isinstance(opts, dict):
-                opts = opts.get("choices", [])
-            counts = {opt: 0 for opt in opts}
-            for a in q_answers:
-                weight = session_weights.get(a["session_id"], 1.0)
-                ans_opts = a.get("answer_options")
-                if ans_opts:
-                    for sel in ans_opts:
-                        if sel in counts:
-                            counts[sel] += weight
-            summary_stats[qid] = {"counts": counts}
-        elif qtype in ["rating_scale", "likert_scale"]:
-            nums_and_weights = []
-            for a in q_answers:
-                n = a.get("answer_numeric")
-                if n is not None:
-                    w = session_weights.get(a["session_id"], 1.0)
-                    nums_and_weights.append((n, w))
-            nums = [x[0] for x in nums_and_weights]
-            total_w = sum(x[1] for x in nums_and_weights)
-            mean = sum(x[0]*x[1] for x in nums_and_weights) / total_w if total_w > 0 else 0
-            
-            counts = {}
-            for n in nums:
-                counts[n] = counts.get(n, 0) + 1
-            summary_stats[qid] = {"mean": round(mean, 1) if nums else 0, "counts": counts}
+    respondent_profiles = []
+    for s in sessions:
+        profile = {"respondent_id": s["id"][:8], "answers": {}}
+        for a in answers_by_session.get(s["id"], []):
+            q = q_map.get(a["question_id"])
+            if q:
+                q_text = q["question_text"]
+                if a.get("answer_text"):
+                    profile["answers"][q_text] = a["answer_text"]
+                elif a.get("answer_numeric") is not None:
+                    profile["answers"][q_text] = a["answer_numeric"]
+                elif a.get("answer_options"):
+                    profile["answers"][q_text] = a["answer_options"]
+        respondent_profiles.append(profile)
 
     questions_summary = []
     for q in questions:
         if q["type"] == "section_header":
             continue
-        q_info = {"id": q["id"], "text": q["question_text"], "type": q["type"]}
+        q_info = {"text": q["question_text"], "type": q["type"]}
         if q.get("options"):
             opts = q["options"]
             if isinstance(opts, dict):
@@ -1082,7 +900,7 @@ def _gather_survey_data(survey_id: str):
                 q_info["choices"] = opts
         questions_summary.append(q_info)
 
-    return survey, questions_summary, summary_stats, total_count
+    return survey, questions_summary, respondent_profiles
 
 
 async def _call_gemini(prompt: str, survey_id: str, total_respondents: int):
@@ -1142,14 +960,18 @@ async def handle_ai_analysis(survey_id: str, analysis_type: str, force_refresh: 
         except Exception as e:
             print(f"Warning: Failed to read AI cache: {e}")
 
-    survey, questions_summary, summary_stats, total_count = _gather_survey_data(survey_id)
+    survey, questions_summary, profiles = _gather_survey_data(survey_id)
+    if not profiles:
+        raise HTTPException(status_code=400, detail="Not enough responses for AI analysis.")
 
-    prompt = _base_context(survey, questions_summary, summary_stats, total_count) + prompt_suffix
+    prompt = _base_context(survey, questions_summary, profiles) + prompt_suffix
     
-    analysis = await _call_gemini(prompt, survey_id, total_count)
+    analysis = await _call_gemini(prompt, survey_id, len(profiles))
     
     # Save to cache
     try:
+        # Get existing record to handle upsert properly without relying purely on constraint if preferred, 
+        # but UPSERT should work. To be safe since we don't have primary key from client:
         existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", analysis_type).execute()
         if existing.data:
             supabase.table("ai_analyses").update({
@@ -1169,25 +991,19 @@ async def handle_ai_analysis(survey_id: str, analysis_type: str, force_refresh: 
     return analysis
 
 
-def _base_context(survey, questions_summary, summary_stats, total_respondents):
+def _base_context(survey, questions_summary, respondent_profiles):
     """Build the shared context block for all prompts."""
-    # Map the summary stats back to the question text for the prompt
-    mapped_stats = {}
-    for q in questions_summary:
-        if q["id"] in summary_stats:
-            mapped_stats[q["text"]] = summary_stats[q["id"]]
-
     return f"""You are an expert policy research analyst working for a Canadian youth advocacy organization called CYC (Canadian Youth Cabinet).
 
 Survey: "{survey['title']}"
 Description: {survey.get('description', 'N/A')}
-Total respondents: {total_respondents}
+Total respondents: {len(respondent_profiles)}
 
 Questions asked:
 {json_module.dumps(questions_summary, indent=2)}
 
-Survey Results (Aggregated Statistics):
-{json_module.dumps(mapped_stats, indent=2)}"""
+Respondent data (each respondent's answers):
+{json_module.dumps(respondent_profiles, indent=2)}"""
 
 
 # --- 1. PERSUADABILITY DETECTION ---
