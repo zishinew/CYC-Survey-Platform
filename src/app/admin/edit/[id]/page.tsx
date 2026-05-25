@@ -5,7 +5,7 @@ import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIc
 import Link from 'next/link';
 import { RichTextEditor } from '@/components/RichTextEditor';
 
-type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'dropdown' | 'section_header';
+type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'dropdown' | 'section_header' | 'ranking';
 
 interface QuestionDraft {
   id: string;
@@ -149,7 +149,7 @@ export default function EditSurvey() {
       id: Math.random().toString(36).substr(2, 9),
       question_text: '',
       type,
-      options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? ['Option 1'] : [],
+      options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' || type === 'ranking' ? ['Option 1'] : [],
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
       randomize_options: false,
@@ -686,7 +686,7 @@ export default function EditSurvey() {
                   )}
                 </div>
 
-                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
+                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown' || q.type === 'ranking') && (
                   <div className="flex items-center space-x-6 mb-4 text-sm text-gray-600 dark:text-slate-400 pl-8">
                     <label className="flex items-center cursor-pointer">
                       <input type="checkbox" checked={q.has_other || false}
@@ -714,7 +714,7 @@ export default function EditSurvey() {
                   </div>
                 )}
 
-                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
+                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown' || q.type === 'ranking') && (
                   <div className="ml-10 pr-28 space-y-2">
                     {optionsArray.map((opt: string, oIdx: number) => (
                       <div key={oIdx} className="flex items-center space-x-2">
@@ -834,6 +834,9 @@ export default function EditSurvey() {
               </button>
               <button type="button" onClick={() => addQuestion('multiple_choice')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Multiple Choice
+              </button>
+              <button type="button" onClick={() => addQuestion('ranking')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
+                Ranking
               </button>
               <button type="button" onClick={() => addQuestion('checkboxes')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Checkboxes

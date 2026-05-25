@@ -222,6 +222,42 @@ export default function ResultsPage() {
       );
     }
 
+    if (q.type === 'ranking') {
+      const avgRanks = stat.avg_ranks || {};
+      const totalN = stat.sample_size || 0;
+      
+      const sortedItems = Object.entries(avgRanks)
+        .sort(([, a]: [string, any], [, b]: [string, any]) => Number(a) - Number(b));
+
+      return (
+        <div>
+          <div className="space-y-3">
+            {sortedItems.map(([opt, avg]: [string, any], i) => {
+              const optsArray = Array.isArray(q.options) ? q.options : (q.options?.choices || []);
+              const maxRank = optsArray.length || 5; 
+              const pct = maxRank > 1 ? Math.max(0, 100 - ((avg - 1) / (maxRank - 1)) * 100) : 100;
+              return (
+                <div key={opt}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-gray-700">{i + 1}. {opt}</span>
+                    <span className="text-gray-500">Avg Rank: {Number(avg).toFixed(2)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div className="h-full rounded-full bg-[var(--color-cyc-primary)] transition-all duration-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {totalN > 0 && advancedStatsUI(q.id, (
+            <>
+              <div><span className="block text-xs text-gray-500 mb-0.5">Sample Size (N)</span><span className="font-bold">{totalN}</span></div>
+            </>
+          ))}
+        </div>
+      );
+    }
+
     if (q.type === 'rating_scale') {
       const { sample_size, avg, median, std_dev, variance, min, max, quartiles, outliers } = stat;
       return (
@@ -490,6 +526,8 @@ export default function ResultsPage() {
                       displayValue = answer.answer_numeric !== null ? `${answer.answer_numeric} — ${labels[answer.answer_numeric] || ''}` : '—';
                     } else if (q.type === 'checkboxes') {
                       displayValue = answer.answer_options ? (answer.answer_options as string[]).join(', ') : '—';
+                    } else if (q.type === 'ranking') {
+                      displayValue = answer.answer_options ? (answer.answer_options as string[]).map((opt, i) => `${i + 1}. ${opt}`).join(' | ') : '—';
                     }
                   }
 

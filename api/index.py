@@ -838,6 +838,27 @@ async def get_survey_summary(survey_id: str):
                 stats[qid] = {
                     "texts": texts[:100]
                 }
+            elif q_type == "ranking":
+                sums = {}
+                counts = {}
+                total_weighted = 0
+                for a in ans:
+                    opts = a.get("answer_options")
+                    weight = a.get("weight", 1.0)
+                    if opts and isinstance(opts, list):
+                        total_weighted += weight
+                        for i, opt in enumerate(opts):
+                            sums[opt] = sums.get(opt, 0) + (i + 1) * weight
+                            counts[opt] = counts.get(opt, 0) + weight
+                avg_ranks = {}
+                for opt, s in sums.items():
+                    if counts[opt] > 0:
+                        avg_ranks[opt] = round(s / counts[opt], 2)
+                stats[qid] = {
+                    "avg_ranks": avg_ranks,
+                    "sample_size": len(ans),
+                    "total_weighted": total_weighted
+                }
                 
         return stats
     except Exception as e:

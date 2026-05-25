@@ -14,7 +14,7 @@ CREATE TABLE surveys (
 );
 
 -- Question Types Enum
-CREATE TYPE question_type AS ENUM ('multiple_choice', 'short_answer', 'rating_scale', 'checkboxes', 'likert_scale');
+CREATE TYPE question_type AS ENUM ('multiple_choice', 'short_answer', 'rating_scale', 'checkboxes', 'likert_scale', 'ranking');
 
 -- Questions Table
 CREATE TABLE questions (

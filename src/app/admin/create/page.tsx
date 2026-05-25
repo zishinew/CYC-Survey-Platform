@@ -5,7 +5,7 @@ import { PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText, Image as ImageIc
 import Link from 'next/link';
 import { RichTextEditor } from '@/components/RichTextEditor';
 
-type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'section_header' | 'dropdown';
+type QuestionType = 'multiple_choice' | 'short_answer' | 'rating_scale' | 'checkboxes' | 'likert_scale' | 'section_header' | 'dropdown' | 'ranking';
 
 interface QuestionDraft {
   id: string;
@@ -117,8 +117,8 @@ export default function CreateSurvey() {
       question_text: '',
       question_text_fr: '',
       type,
-      options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? ['Option 1'] : [],
-      options_fr: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' ? [] : [],
+      options: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' || type === 'ranking' ? ['Option 1'] : [],
+      options_fr: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' || type === 'ranking' ? [] : [],
       is_required: type === 'section_header' ? false : true,
       is_conditional: false,
       max_selections: type === 'checkboxes' ? 3 : undefined,
@@ -519,7 +519,7 @@ export default function CreateSurvey() {
                       className="w-16 p-1 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-[var(--color-cyc-primary)] focus:outline-none text-center" />
                   </label>
                 )}
-                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
+                {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown' || q.type === 'ranking') && (
                   <>
                     <label className="flex items-center cursor-pointer">
                       <input type="checkbox" checked={q.has_other || false}
@@ -585,7 +585,7 @@ export default function CreateSurvey() {
               )}
 
               {/* Options for MC / Checkboxes */}
-              {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown') && (
+              {(q.type === 'multiple_choice' || q.type === 'checkboxes' || q.type === 'dropdown' || q.type === 'ranking') && (
                 <div className="ml-10 pr-28 space-y-2">
                   {getOptionsForDisplay(q).map((opt, oIdx) => (
                     <div key={oIdx} className="flex items-center space-x-2">
@@ -660,6 +660,9 @@ export default function CreateSurvey() {
               </button>
               <button type="button" onClick={() => addQuestion('multiple_choice')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Multiple Choice
+              </button>
+              <button type="button" onClick={() => addQuestion('ranking')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
+                Ranking
               </button>
               <button type="button" onClick={() => addQuestion('checkboxes')} className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded shadow-sm hover:border-[var(--color-cyc-primary)] transition-colors text-sm font-medium text-gray-700 dark:text-slate-300">
                 Checkboxes

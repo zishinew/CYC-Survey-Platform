@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Download } from 'lucide-react';
 import parse, { domToReact, Element, Text } from 'html-react-parser';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -265,7 +265,7 @@ export default function SurveyPage() {
             body.answer_text = val;
           } else if (currentQuestion.type === 'rating_scale' || currentQuestion.type === 'likert_scale') {
             body.answer_numeric = val;
-          } else if (currentQuestion.type === 'checkboxes') {
+          } else if (currentQuestion.type === 'checkboxes' || currentQuestion.type === 'ranking') {
             body.answer_options = val;
           }
 
@@ -381,6 +381,12 @@ export default function SurveyPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id]);
 
+  useEffect(() => {
+    if (currentQuestion?.type === 'ranking' && !answers[currentQuestion.id] && displayChoices.length > 0) {
+      setAnswers(prev => ({...prev, [currentQuestion.id]: displayChoices}));
+    }
+  }, [currentQuestion, displayChoices, answers]);
+
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center h-full">
@@ -429,7 +435,7 @@ export default function SurveyPage() {
       body.answer_text = val;
     } else if (question.type === 'rating_scale' || question.type === 'likert_scale') {
       body.answer_numeric = val;
-    } else if (question.type === 'checkboxes') {
+    } else if (question.type === 'checkboxes' || question.type === 'ranking') {
       body.answer_options = val;
     }
 
@@ -562,7 +568,7 @@ export default function SurveyPage() {
           answerObj.answer_text = val;
         } else if (q.type === 'rating_scale' || q.type === 'likert_scale') {
           answerObj.answer_numeric = val;
-        } else if (q.type === 'checkboxes') {
+        } else if (q.type === 'checkboxes' || q.type === 'ranking') {
           answerObj.answer_options = val;
         }
         submissionAnswers.push(answerObj);
@@ -844,6 +850,26 @@ export default function SurveyPage() {
                       </>
                     );
                   })()}
+                </div>
+              )}
+
+              {/* RANKING */}
+              {currentQuestion.type === 'ranking' && (
+                <div className="space-y-3 sm:space-y-4">
+                  <p className="text-sm text-gray-500 font-medium mb-3">{t('Drag and drop the items to rank them in order of preference (1 = Top Preference).')}</p>
+                  <Reorder.Group axis="y" values={answers[currentQuestion.id] || displayChoices} onReorder={(newOrder) => setAnswers({...answers, [currentQuestion.id]: newOrder})} className="space-y-3">
+                    {(answers[currentQuestion.id] || displayChoices).map((opt: string, index: number) => (
+                      <Reorder.Item key={opt} value={opt} className="flex items-center p-3 sm:p-4 border-2 border-gray-100 dark:border-white/5 bg-white dark:bg-white/5 rounded-xl cursor-grab active:cursor-grabbing hover:shadow-md hover:border-teal-200 transition-all">
+                        <div className="w-8 h-8 rounded-full bg-teal-50 dark:bg-[var(--color-cyc-primary)]/20 flex items-center justify-center mr-4 font-bold text-[var(--color-cyc-primary)]">
+                          {index + 1}
+                        </div>
+                        <span className="text-base sm:text-lg font-medium text-gray-700 dark:text-slate-200 flex-grow">{opt}</span>
+                        <div className="text-gray-400">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        </div>
+                      </Reorder.Item>
+                    ))}
+                  </Reorder.Group>
                 </div>
               )}
 
