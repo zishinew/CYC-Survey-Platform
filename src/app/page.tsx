@@ -62,10 +62,59 @@ export default function Home() {
   const rafRef = useRef<number>(0);
   const lastRef = useRef(0);
 
+  const [carouselConfig, setCarouselConfig] = useState({
+    radius: 320,
+    yOffsetMax: -50,
+    rotZMax: 14,
+    rotXMax: 8,
+    scaleMin: 0.5
+  });
+
   useEffect(() => {
     // Hold the intro state for 2 seconds (allows logo to fade in and hold before moving)
     const timer = setTimeout(() => setShowIntro(false), 2000);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) {
+        setCarouselConfig({
+          radius: 80,
+          yOffsetMax: -15,
+          rotZMax: 5,
+          rotXMax: 4,
+          scaleMin: 0.65
+        });
+      } else if (window.innerWidth < 768) {
+        setCarouselConfig({
+          radius: 160,
+          yOffsetMax: -30,
+          rotZMax: 8,
+          rotXMax: 6,
+          scaleMin: 0.55
+        });
+      } else if (window.innerWidth < 1024) {
+        setCarouselConfig({
+          radius: 240,
+          yOffsetMax: -40,
+          rotZMax: 12,
+          rotXMax: 7,
+          scaleMin: 0.5
+        });
+      } else {
+        setCarouselConfig({
+          radius: 320,
+          yOffsetMax: -50,
+          rotZMax: 14,
+          rotXMax: 8,
+          scaleMin: 0.5
+        });
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -94,7 +143,11 @@ export default function Home() {
       .catch(() => setLoading(false));
   }, []);
 
+  const isSingleActiveSurvey = surveys.length === 1;
+
   useEffect(() => {
+    if (isSingleActiveSurvey) return;
+
     const SPEED = 0.012;
     const tick = (t: number) => {
       if (!lastRef.current) lastRef.current = t;
@@ -113,7 +166,7 @@ export default function Home() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [isPaused, targetAngle]);
+  }, [isPaused, targetAngle, isSingleActiveSurvey]);
 
   const handleHover = (idx: number, stepLength: number) => {
     setIsPaused(true);
@@ -135,16 +188,18 @@ export default function Home() {
     return { ...item, displayTitle, displayDescription };
   });
   const items = [...baseItems];
-  while (items.length < 3) {
-    items.push({
-      id: `coming-soon-${items.length}`,
-      title: t('More Surveys Coming Soon'),
-      description: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
-      displayTitle: t('More Surveys Coming Soon'),
-      displayDescription: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
-      estimated_minutes: '--',
-      isComingSoon: true
-    });
+  if (!isSingleActiveSurvey) {
+    while (items.length < 3) {
+      items.push({
+        id: `coming-soon-${items.length}`,
+        title: t('More Surveys Coming Soon'),
+        description: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
+        displayTitle: t('More Surveys Coming Soon'),
+        displayDescription: t('We are preparing new surveys to gather your feedback. Please check back later to share your perspective!'),
+        estimated_minutes: '--',
+        isComingSoon: true
+      });
+    }
   }
 
   const STEP = 360 / Math.max(items.length, 1);
@@ -211,12 +266,12 @@ export default function Home() {
 
       {/* Hero Section */}
       <motion.div
-        className="w-full max-w-4xl mx-auto flex flex-col items-center text-center z-40 mt-6 md:mt-10"
+        className="w-full max-w-4xl mx-auto flex flex-col items-center text-center z-40 mt-3 sm:mt-6 md:mt-10"
       >
         <motion.img 
           src="/CYC_Logo.png" 
           alt="CYC Logo" 
-          className="w-20 md:w-28 h-auto mb-2 opacity-90 origin-center relative z-50"
+          className="w-16 sm:w-20 md:w-28 h-auto mb-1 md:mb-2 opacity-90 origin-center relative z-50"
           initial={{ y: "35vh", scale: 2.0, opacity: 0 }}
           animate={{ 
             y: showIntro ? "35vh" : 0, 
@@ -230,7 +285,7 @@ export default function Home() {
           }}
         />
         <motion.h1 
-          className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-[#04377E] tracking-tight leading-[1.0] mb-4 font-inter uppercase"
+          className="text-2xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-[#04377E] tracking-tight leading-[1.0] mb-2 sm:mb-4 font-inter uppercase"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: showIntro ? 0 : 1, y: showIntro ? 20 : 0 }}
           transition={{ duration: 1.0, delay: 0.3 }}
@@ -246,7 +301,7 @@ export default function Home() {
         >
           <Link
             href="/surveys"
-            className="inline-flex items-center bg-[#F5C518] hover:bg-yellow-400 text-[#1a1a1a] font-extrabold py-3.5 px-10 rounded-full text-base md:text-lg shadow-[0_4px_20px_rgba(245,197,24,0.4)] hover:shadow-[0_6px_25px_rgba(245,197,24,0.6)] transition-all duration-300 uppercase tracking-wider"
+            className="inline-flex items-center bg-[#F5C518] hover:bg-yellow-400 text-[#1a1a1a] font-extrabold py-2 px-6 sm:py-3.5 sm:px-10 rounded-full text-xs sm:text-base md:text-lg shadow-[0_4px_20px_rgba(245,197,24,0.4)] hover:shadow-[0_6px_25px_rgba(245,197,24,0.6)] transition-all duration-300 uppercase tracking-wider"
           >{t('START NOW')}</Link>
         </motion.div>
       </motion.div>
@@ -254,7 +309,7 @@ export default function Home() {
       {/* 3D Spinning Carousel */}
       {items.length > 0 && (
         <motion.div 
-          className="w-full max-w-5xl mx-auto z-10 mt-10 md:mt-12 relative flex-1 min-h-0 flex items-start justify-center pt-4"
+          className="w-full max-w-5xl mx-auto z-10 mt-4 sm:mt-8 md:mt-12 relative flex-1 min-h-0 flex items-start justify-center pt-2 md:pt-4"
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: showIntro ? 0 : 1, y: showIntro ? 40 : 0 }}
           transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
@@ -262,32 +317,43 @@ export default function Home() {
           {items.map((item, idx) => {
             const cardAngle = angle + idx * STEP;
             const rad = (cardAngle * Math.PI) / 180;
-            const x = Math.sin(rad) * 320;
+            const x = Math.sin(rad) * carouselConfig.radius;
             const zF = Math.cos(rad); // -1 back, 1 front
-            const sc = 0.5 + 0.5 * ((zF + 1) / 2); // 0.5 back, 1.0 front
+            const sc = carouselConfig.scaleMin + (1 - carouselConfig.scaleMin) * ((zF + 1) / 2);
             const zI = Math.round((zF + 1) * 10);
             
             // Tilted and different Ys for the "slightly above view" fan effect
-            const rotZ = Math.sin(rad) * 14; // tilt sideways more drastically
-            const yOff = (1 - zF) * -50; // go much higher up as it goes to the back
-            const rotX = (1 - zF) * 8; // pitch back slightly
+            const rotZ = Math.sin(rad) * carouselConfig.rotZMax;
+            const yOff = (1 - zF) * carouselConfig.yOffsetMax;
+            const rotX = (1 - zF) * carouselConfig.rotXMax;
 
             const isCompleted = completedIds.includes(item.id);
 
             return (
               <div
                 key={item.id}
-                className="absolute w-[280px] sm:w-[320px] md:w-[420px] lg:w-[500px] cursor-pointer perspective-[1000px]"
+                className="absolute w-[260px] sm:w-[320px] md:w-[420px] lg:w-[500px] cursor-pointer perspective-[1000px]"
                 style={{ transform: `translateX(${x}px) translateY(${yOff}px) scale(${sc}) rotateZ(${rotZ}deg) rotateX(${rotX}deg)`, zIndex: zI }}
-                onMouseEnter={() => handleHover(idx, STEP)}
-                onMouseLeave={handleLeave}
+                onMouseEnter={() => !isSingleActiveSurvey && handleHover(idx, STEP)}
+                onMouseLeave={!isSingleActiveSurvey ? handleLeave : undefined}
               >
+                <motion.div
+                  animate={isSingleActiveSurvey ? {
+                    y: [0, -10, 0],
+                  } : {}}
+                  transition={isSingleActiveSurvey ? {
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  } : undefined}
+                  className="w-full h-full"
+                >
                   <TiltCard
                     item={item}
                     isCompleted={isCompleted}
                     t={t}
                     isFront={zI >= 15}
-                    className={`rounded-2xl border flex flex-col justify-between overflow-hidden transition-colors duration-200 bg-white h-[240px] md:h-[280px] lg:h-[340px] relative ${
+                    className={`rounded-2xl border flex flex-col justify-between overflow-hidden transition-colors duration-200 bg-white h-[200px] sm:h-[240px] md:h-[280px] lg:h-[340px] relative ${
                       zI >= 15
                         ? 'border-[#F5C518]/30 shadow-[0_15px_40px_rgba(0,0,0,0.2)]'
                         : 'border-gray-200/60 shadow-lg'
@@ -299,26 +365,26 @@ export default function Home() {
                       <div className="absolute inset-0 bg-white/85 backdrop-blur-[2px]" />
                     </div>
                   )}
-                  <div className="relative z-10 p-5 md:p-8 flex flex-col h-full justify-between" style={{ transform: "translateZ(30px)" }}>
+                  <div className="relative z-10 p-4 sm:p-5 md:p-8 flex flex-col h-full justify-between" style={{ transform: "translateZ(30px)" }}>
                   <div>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-1.5 sm:mb-3">
                       {isCompleted && (
                         <div className="flex items-center text-green-600 text-[10px] font-bold bg-green-50 px-2.5 py-1 rounded-full shadow-sm">
                           <CheckCircle2 className="w-3 h-3 mr-1" />{t('Completed')}
                         </div>
                       )}
                       <span className="flex items-center text-[10px] text-gray-400 font-bold tracking-wide ml-auto">
-                        <Clock className="w-3 h-3 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
+                        <Clock className="w-3.5 h-3.5 mr-1" />{item.estimated_minutes === '--' ? '--' : `${item.estimated_minutes} ${t('MIN')}`}
                       </span>
                     </div>
-                    <h2 className="text-2xl md:text-4xl font-extrabold mb-3 leading-tight line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.displayTitle || item.title}</h2>
-                    <p className="text-sm md:text-base leading-relaxed line-clamp-4 text-gray-500">
+                    <h2 className="text-lg sm:text-2xl md:text-4xl font-extrabold mb-1.5 sm:mb-3 leading-tight line-clamp-2 md:line-clamp-3 text-[#1a1a1a] drop-shadow-sm">{item.displayTitle || item.title}</h2>
+                    <p className="text-[11px] sm:text-sm md:text-base leading-relaxed line-clamp-2 sm:line-clamp-3 md:line-clamp-4 text-gray-500">
                       {item.displayDescription || item.description || t('Share your perspective on issues that matter.')}
                     </p>
                   </div>
                   <div className="mt-auto flex items-center justify-end">
                     {item.isComingSoon ? (
-                      <button disabled className="flex items-center px-6 py-2.5 rounded-full text-sm md:text-base font-bold bg-gray-100 text-gray-400 cursor-not-allowed">
+                      <button disabled className="flex items-center px-4 py-1.5 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-base font-bold bg-gray-100 text-gray-400 cursor-not-allowed">
                         {t('Coming Soon')}
                       </button>
                     ) : isCompleted ? (
@@ -327,12 +393,13 @@ export default function Home() {
                       </span>
                     ) : (
                       <Link href={`/survey/${item.id}`}
-                        className="flex items-center px-6 py-2.5 rounded-full text-sm md:text-base font-bold bg-[#F5C518] text-[#1a1a1a] hover:bg-yellow-400 shadow-md hover:shadow-lg transition-all duration-200"
-                      >{t('Start Survey')}<ArrowRight className="w-4 h-4 ml-2" /></Link>
+                        className="flex items-center px-4 py-1.5 sm:px-6 sm:py-2.5 rounded-full text-xs sm:text-base font-bold bg-[#F5C518] text-[#1a1a1a] hover:bg-yellow-400 shadow-md hover:shadow-lg transition-all duration-200"
+                      >{t('Start Survey')}<ArrowRight className="w-3 h-3 ml-1 sm:w-4 sm:h-4 sm:ml-2" /></Link>
                     )}
                   </div>
                 </div>
                 </TiltCard>
+                </motion.div>
               </div>
             );
           })}
