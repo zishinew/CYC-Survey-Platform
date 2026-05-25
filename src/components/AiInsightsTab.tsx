@@ -309,12 +309,12 @@ export default function AiInsightsTab({ surveyId, totalRespondents }: { surveyId
                 <p className="text-sm text-gray-600 mb-6">{data.summary}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {data.archetypes?.map((arch: any, i: number) => (
-                    <div key={i} className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
+                    <div key={i} className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col h-full">
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="font-bold text-[var(--color-cyc-primary)] text-lg">{arch.name}</h4>
                         <span className="bg-[var(--color-cyc-secondary)] text-white text-xs font-bold px-2 py-1 rounded-md">{arch.percentage}%</span>
                       </div>
-                      <p className="text-xs text-gray-600 mb-4 h-10">{arch.description}</p>
+                      <p className="text-xs text-gray-600 mb-4 flex-grow">{arch.description}</p>
                       
                       <div className="space-y-3">
                         <div>
