@@ -84,23 +84,13 @@ export default function ResultsPage() {
   const toggleAdvanced = (qId: string) => setShowAdvanced(prev => ({ ...prev, [qId]: !prev[qId] }));
 
   const fetchResults = () => {
-    setLoading(true);
-    const queryParams = new URLSearchParams();
-    queryParams.append('mode', tab);
-    if (tab === 'individual') {
-      queryParams.append('page', (currentResponse + 1).toString());
-      queryParams.append('limit', '1');
-      queryParams.append('filter_failed', filterFailed.toString());
-    }
-    fetch(`/api/surveys/${params.id}/results?${queryParams.toString()}`)
+    fetch(`/api/surveys/${params.id}/results`)
       .then(res => res.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchResults();
-  }, [params.id, tab, currentResponse, filterFailed]);
+  useEffect(() => { fetchResults(); }, [params.id]);
 
   const handleDeleteAll = async () => {
     const input = window.prompt(`This will PERMANENTLY DELETE all ${data?.total_responses || 0} responses for this survey. Type "DELETE ALL" to confirm.`);
@@ -346,8 +336,8 @@ export default function ResultsPage() {
   }
 
   // --- INDIVIDUAL VIEW ---
-  const currentResp = tab === 'individual' ? responses[0] : null;
-  const totalIndividualCount = total_responses;
+  const displayResponses = filterFailed ? responses.filter((r: Response) => (r.attention_check_failures || 0) > 0) : responses;
+  const currentResp = displayResponses[currentResponse];
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -447,7 +437,7 @@ export default function ResultsPage() {
               <span className="text-sm font-semibold text-gray-700">Show Only Failed Attention Checks</span>
             </label>
           </div>
-          {totalIndividualCount === 0 ? (
+          {displayResponses.length === 0 ? (
             <p className="text-center text-gray-500 py-12">No responses yet.</p>
           ) : (
             <>
@@ -463,7 +453,7 @@ export default function ResultsPage() {
                 <div className="text-center">
                   <span className="font-bold text-[var(--color-cyc-secondary)]">Response {currentResponse + 1}</span>
                   <span className="text-gray-400 mx-2">of</span>
-                  <span className="font-bold text-[var(--color-cyc-secondary)]">{totalIndividualCount}</span>
+                  <span className="font-bold text-[var(--color-cyc-secondary)]">{displayResponses.length}</span>
                   {currentResp?.attention_check_failures && currentResp.attention_check_failures > 0 ? (
                     <div className="mt-2 inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
                       <AlertTriangle className="w-3 h-3 mr-1" />
@@ -477,18 +467,16 @@ export default function ResultsPage() {
                   )}
                 </div>
                 <div className="flex items-center space-x-2">
-                  {currentResp?.session_id && (
-                    <button
-                      onClick={() => handleDeleteOne(currentResp.session_id)}
-                      className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                      title="Delete this response"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
                   <button
-                    onClick={() => setCurrentResponse(Math.min(totalIndividualCount - 1, currentResponse + 1))}
-                    disabled={currentResponse === totalIndividualCount - 1}
+                    onClick={() => handleDeleteOne(currentResp.session_id)}
+                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                    title="Delete this response"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentResponse(Math.min(displayResponses.length - 1, currentResponse + 1))}
+                    disabled={currentResponse === displayResponses.length - 1}
                     className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight className="w-5 h-5" />
