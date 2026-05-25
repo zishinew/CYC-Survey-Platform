@@ -857,9 +857,9 @@ export default function SurveyPage() {
               {currentQuestion.type === 'ranking' && (
                 <div className="space-y-3 sm:space-y-4">
                   <p className="text-sm text-gray-500 font-medium mb-3">{t('Drag and drop the items to rank them in order of preference (1 = Top Preference).')}</p>
-                  <Reorder.Group axis="y" values={answers[currentQuestion.id] || displayChoices} onReorder={(newOrder) => setAnswers({...answers, [currentQuestion.id]: newOrder})} className="space-y-3">
+                  <Reorder.Group axis="y" values={answers[currentQuestion.id] || displayChoices} onReorder={(newOrder) => setAnswers({...answers, [currentQuestion.id]: newOrder})} className="flex flex-col gap-3">
                     {(answers[currentQuestion.id] || displayChoices).map((opt: string, index: number) => (
-                      <Reorder.Item key={opt} value={opt} className="flex items-center p-3 sm:p-4 border-2 border-gray-100 dark:border-white/5 bg-white dark:bg-white/5 rounded-xl cursor-grab active:cursor-grabbing hover:shadow-md hover:border-teal-200 transition-all">
+                      <Reorder.Item key={opt} value={opt} className="relative flex items-center p-3 sm:p-4 border-2 border-gray-100 dark:border-white/5 bg-white dark:bg-slate-900 rounded-xl cursor-grab active:cursor-grabbing hover:shadow-md hover:border-teal-200 transition-colors transition-shadow">
                         <div className="w-8 h-8 rounded-full bg-teal-50 dark:bg-[var(--color-cyc-primary)]/20 flex items-center justify-center mr-4 font-bold text-[var(--color-cyc-primary)]">
                           {index + 1}
                         </div>
