@@ -800,9 +800,13 @@ def _gather_survey_data(survey_id: str):
     if len(sessions) < 3:
         raise HTTPException(status_code=400, detail="Need at least 3 completed responses for AI analysis.")
 
-    session_ids = [s["id"] for s in sessions]
-    answers_res = supabase.table("answers").select("*").in_("session_id", session_ids).execute()
-    all_answers = answers_res.data
+    valid_session_ids = {s["id"] for s in sessions}
+    
+    # Fetch all answers for the survey using inner join to bypass URL limits
+    answers_res = supabase.table("answers").select("*, response_sessions!inner(survey_id)").eq("response_sessions.survey_id", survey_id).execute()
+    
+    # Filter down to only valid, completed sessions
+    all_answers = [a for a in answers_res.data if a["session_id"] in valid_session_ids]
 
     q_map = {q["id"]: q for q in questions}
     answers_by_session = {}
