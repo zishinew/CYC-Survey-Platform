@@ -338,7 +338,7 @@ export default function EditSurvey() {
         is_active: isActive,
         questions: questions.map((q, idx) => {
           let optionsPayload: any = null;
-          if (q.type === 'multiple_choice' || q.type === 'dropdown') {
+          if (q.type === 'multiple_choice' || q.type === 'dropdown' || q.type === 'ranking') {
             optionsPayload = { choices: q.options, has_other: q.has_other || false, randomize_options: q.randomize_options || false, locked_choices: q.locked_choices || [] };
           } else if (q.type === 'checkboxes') {
             optionsPayload = { choices: q.options, max_selections: q.max_selections, has_other: q.has_other || false, randomize_options: q.randomize_options || false, locked_choices: q.locked_choices || [] };
@@ -382,7 +382,7 @@ export default function EditSurvey() {
         const draftQ = questions[idx];
         const updatedQ = isLocked ? draftQ : updatedSurvey.questions?.[idx];
         let optionsFr: any = null;
-        if (q.type === 'multiple_choice' || q.type === 'dropdown') {
+        if (q.type === 'multiple_choice' || q.type === 'dropdown' || q.type === 'ranking') {
           optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
         } else if (q.type === 'checkboxes') {
           optionsFr = { choices: draftQ.options_fr || q.options?.choices || [], max_selections: q.options?.max_selections, has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
@@ -407,7 +407,7 @@ export default function EditSurvey() {
         const draftQ = questions[idx];
         const updatedQ = isLocked ? draftQ : updatedSurvey.questions?.[idx];
         let optionsZh: any = null;
-        if (q.type === 'multiple_choice' || q.type === 'dropdown') {
+        if (q.type === 'multiple_choice' || q.type === 'dropdown' || q.type === 'ranking') {
           optionsZh = { choices: draftQ.options_zh || q.options?.choices || [], has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
         } else if (q.type === 'checkboxes') {
           optionsZh = { choices: draftQ.options_zh || q.options?.choices || [], max_selections: q.options?.max_selections, has_other: q.options?.has_other || false, randomize_options: q.options?.randomize_options || false, locked_choices: q.options?.locked_choices || [] };
