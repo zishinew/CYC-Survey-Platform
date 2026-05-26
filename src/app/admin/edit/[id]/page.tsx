@@ -57,6 +57,7 @@ export default function EditSurvey() {
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [language, setLanguage] = useState<'en' | 'fr' | 'zh'>('en');
   const [isLocked, setIsLocked] = useState(false);
+  const [pdfUploading, setPdfUploading] = useState(false);
   useEffect(() => {
     Promise.all([
       fetch(`/api/surveys/${params.id}`).then(res => {
@@ -211,6 +212,51 @@ export default function EditSurvey() {
     const result = await uploadFile(file);
     if (result) setThumbnailUrl(result.url);
     setThumbnailUploading(false);
+  };
+
+  const handleTranslatePDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfUploading(true);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('target_language', language);
+
+    try {
+      const res = await fetch(`/api/surveys/${params.id}/translate-pdf`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('PDF Translation failed');
+      
+      const data = await res.json();
+      const newTrans = data.data[`questions_${language}`];
+      
+      // Update state
+      setQuestions(prev => prev.map((q, idx) => {
+        const transQ = newTrans[idx];
+        if (!transQ) return q;
+        
+        const choices = transQ.options?.choices || transQ.options;
+        const sectionDesc = transQ.options?.description || '';
+        const definitions = transQ.options?.definitions || [];
+
+        if (language === 'fr') {
+          return { ...q, question_text_fr: transQ.question_text, options_fr: choices, section_description_fr: sectionDesc, definitions_fr: definitions };
+        } else if (language === 'zh') {
+          return { ...q, question_text_zh: transQ.question_text, options_zh: choices, section_description_zh: sectionDesc, definitions_zh: definitions };
+        }
+        return q;
+      }));
+      
+      alert('PDF successfully translated and applied!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to process PDF.');
+    } finally {
+      setPdfUploading(false);
+    }
   };
 
 
@@ -658,9 +704,15 @@ export default function EditSurvey() {
           </div>
           
           {language !== 'en' && (
-            <div className="bg-blue-50 dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 p-3 rounded-lg text-sm flex items-start">
-              <FileText className="w-5 h-5 mr-2 flex-shrink-0" />
-              <p><strong>Translation Mode:</strong> Structural changes (adding/deleting questions or options) are disabled while translating. Switch back to English to modify the survey structure.</p>
+            <div className="bg-blue-50 dark:bg-slate-800/50 text-blue-600 dark:text-blue-400 p-3 rounded-lg text-sm flex flex-col sm:flex-row items-start justify-between gap-4">
+              <div className="flex items-start">
+                <FileText className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                <p><strong>Translation Mode:</strong> Structural changes (adding/deleting questions or options) are disabled while translating. Switch back to English to modify the survey structure.</p>
+              </div>
+              <label className={`flex-shrink-0 flex items-center px-4 py-2 ${pdfUploading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'} text-white rounded-lg shadow transition-colors text-sm font-semibold`}>
+                {pdfUploading ? <span className="animate-pulse">Processing AI...</span> : <><Upload className="w-4 h-4 mr-2" /> Auto-fill from PDF</>}
+                <input type="file" accept=".pdf,application/pdf" onChange={handleTranslatePDF} className="hidden" disabled={pdfUploading} />
+              </label>
             </div>
           )}
 
