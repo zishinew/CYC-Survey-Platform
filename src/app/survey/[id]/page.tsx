@@ -450,7 +450,50 @@ export default function SurveyPage() {
     let next = startStep;
     while (next > 0 && next <= survey.questions.length) {
       const q = survey.questions[next - 1];
+      let shouldSkip = false;
+
       if (q && q.is_conditional && pData[q.question_text]) {
+        shouldSkip = true;
+      }
+
+      if (!shouldSkip && q && q.options?.logic_gates && q.options.logic_gates.length > 0) {
+        const matchType = q.options.logic_gate_match_type || 'all';
+        const logicGates = q.options.logic_gates;
+        
+        const gateResults = logicGates.map((gate: any) => {
+          if (!gate.question_id || !gate.value) return true; // Invalid gates are ignored
+          const answer = answers[gate.question_id];
+          
+          const dependencyQ = survey.questions.find((x: any) => x.id === gate.question_id);
+          let targetValue = gate.value;
+          if (dependencyQ && language !== 'en') {
+             const enOptions = Array.isArray(dependencyQ.options) ? dependencyQ.options : (dependencyQ.options?.choices || []);
+             const optIndex = enOptions.indexOf(gate.value);
+             if (optIndex !== -1) {
+                 if (language === 'fr' && survey.questions_fr) {
+                     const frQ = survey.questions_fr.find((x: any) => x.id === gate.question_id);
+                     const frOpts = Array.isArray(frQ?.options) ? frQ.options : (frQ?.options?.choices || []);
+                     if (frOpts[optIndex]) targetValue = frOpts[optIndex];
+                 } else if (language === 'zh' && survey.questions_zh) {
+                     const zhQ = survey.questions_zh.find((x: any) => x.id === gate.question_id);
+                     const zhOpts = Array.isArray(zhQ?.options) ? zhQ.options : (zhQ?.options?.choices || []);
+                     if (zhOpts[optIndex]) targetValue = zhOpts[optIndex];
+                 }
+             }
+          }
+          
+          if (Array.isArray(answer)) {
+              return answer.includes(targetValue);
+          } else {
+              return answer === targetValue;
+          }
+        });
+        
+        const matched = matchType === 'any' ? gateResults.some((res: boolean) => res) : gateResults.every((res: boolean) => res);
+        if (!matched) shouldSkip = true;
+      }
+
+      if (shouldSkip) {
         next = forward ? next + 1 : next - 1;
       } else {
         break;

@@ -16,6 +16,8 @@ interface QuestionDraft {
   options_fr?: string[];
   is_required: boolean;
   is_conditional: boolean;
+  logic_gates?: { question_id: string; condition_type: string; value: string }[];
+  logic_gate_match_type?: 'all' | 'any';
   max_selections?: number;
   has_other?: boolean;
   randomize_options?: boolean;
@@ -121,6 +123,8 @@ export default function CreateSurvey() {
       options_fr: type === 'multiple_choice' || type === 'checkboxes' || type === 'dropdown' || type === 'ranking' ? [] : [],
       is_required: type === 'section_header' ? false : true,
       is_conditional: false,
+      logic_gates: [],
+      logic_gate_match_type: 'all',
       max_selections: type === 'checkboxes' ? 3 : undefined,
       has_other: false,
       randomize_options: false,
@@ -234,6 +238,31 @@ export default function CreateSurvey() {
     setQuestions(newQs);
   };
 
+  const addLogicGate = (qId: string) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      return { ...q, logic_gates: [...(q.logic_gates || []), { question_id: '', condition_type: 'equals', value: '' }] };
+    }));
+  };
+
+  const updateLogicGate = (qId: string, index: number, field: string, value: string) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      const newGates = [...(q.logic_gates || [])];
+      newGates[index] = { ...newGates[index], [field]: value };
+      return { ...q, logic_gates: newGates };
+    }));
+  };
+
+  const removeLogicGate = (qId: string, index: number) => {
+    setQuestions(questions.map(q => {
+      if (q.id !== qId) return q;
+      const newGates = [...(q.logic_gates || [])];
+      newGates.splice(index, 1);
+      return { ...q, logic_gates: newGates };
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) { setError('Survey title is required'); return; }
@@ -271,6 +300,11 @@ export default function CreateSurvey() {
             if (!optionsPayload) optionsPayload = {};
             optionsPayload.definitions = q.definitions;
           }
+          if (q.logic_gates && q.logic_gates.length > 0) {
+            if (!optionsPayload) optionsPayload = {};
+            optionsPayload.logic_gates = q.logic_gates;
+            optionsPayload.logic_gate_match_type = q.logic_gate_match_type || 'all';
+          }
           return {
             question_text: q.question_text,
             type: q.type,
@@ -307,6 +341,11 @@ export default function CreateSurvey() {
         if (draftQ.definitions_fr && draftQ.definitions_fr.length > 0) {
           if (!optionsFr) optionsFr = {};
           optionsFr.definitions = draftQ.definitions_fr;
+        }
+        if (draftQ.logic_gates && draftQ.logic_gates.length > 0) {
+          if (!optionsFr) optionsFr = {};
+          optionsFr.logic_gates = draftQ.logic_gates;
+          optionsFr.logic_gate_match_type = draftQ.logic_gate_match_type || 'all';
         }
         return {
           id: createdQ?.id,
@@ -641,6 +680,63 @@ export default function CreateSurvey() {
                         />
                         <button type="button" onClick={() => removeDefinition(q.id, dIdx)} className={`text-gray-400 dark:text-slate-500 hover:text-red-500 mt-1 ${language !== 'en' ? 'hidden' : ''}`}>
                           &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Logic Gating Section */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-300">Logic Gating (Display Conditions)</h4>
+                  <div className="flex items-center space-x-2">
+                    {q.logic_gates && q.logic_gates.length > 1 && (
+                      <select 
+                        value={q.logic_gate_match_type || 'all'} 
+                        onChange={(e) => updateQuestion(q.id, 'logic_gate_match_type', e.target.value)}
+                        className={`text-xs border rounded p-1 focus:outline-none ${language !== 'en' ? 'hidden' : ''}`}
+                      >
+                        <option value="all">Match ALL conditions</option>
+                        <option value="any">Match ANY condition</option>
+                      </select>
+                    )}
+                    <button type="button" onClick={() => addLogicGate(q.id)} className={`text-xs text-[var(--color-cyc-primary)] hover:underline ${language !== 'en' ? 'hidden' : ''}`}>
+                      + Add Condition
+                    </button>
+                  </div>
+                </div>
+                {q.logic_gates && q.logic_gates.length > 0 && (
+                  <div className="space-y-2">
+                    {q.logic_gates.map((gate, gIdx) => (
+                      <div key={gIdx} className="flex items-start space-x-2 p-2 bg-gray-50 dark:bg-slate-800 rounded">
+                        <div className="flex-grow flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                          <select 
+                            value={gate.question_id} 
+                            onChange={(e) => updateLogicGate(q.id, gIdx, 'question_id', e.target.value)}
+                            disabled={language !== 'en'}
+                            className="w-full sm:w-1/2 p-1.5 text-sm border rounded focus:ring-1 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
+                          >
+                            <option value="">-- Select Question --</option>
+                            {questions.slice(0, qIdx).filter(prevQ => prevQ.type === 'multiple_choice' || prevQ.type === 'checkboxes' || prevQ.type === 'dropdown').map(prevQ => (
+                              <option key={prevQ.id} value={prevQ.id}>{prevQ.question_text || `Question ${questions.indexOf(prevQ) + 1}`}</option>
+                            ))}
+                          </select>
+                          <select 
+                            value={gate.value} 
+                            onChange={(e) => updateLogicGate(q.id, gIdx, 'value', e.target.value)}
+                            disabled={language !== 'en' || !gate.question_id}
+                            className="w-full sm:w-1/2 p-1.5 text-sm border rounded focus:ring-1 focus:ring-[var(--color-cyc-primary)] focus:outline-none"
+                          >
+                            <option value="">-- Requires Answer --</option>
+                            {gate.question_id && questions.find(pq => pq.id === gate.question_id) ? getOptionsArray(questions.find(pq => pq.id === gate.question_id)?.options).map(opt => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            )) : null}
+                          </select>
+                        </div>
+                        <button type="button" onClick={() => removeLogicGate(q.id, gIdx)} className={`p-1.5 text-gray-400 hover:text-red-500 ${language !== 'en' ? 'hidden' : ''}`}>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
