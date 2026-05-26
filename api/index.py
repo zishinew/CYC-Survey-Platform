@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
@@ -11,6 +11,9 @@ from datetime import datetime
 import io
 import traceback
 import math
+import pdfplumber
+import httpx
+import json as json_module
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
@@ -42,6 +45,29 @@ class Question(BaseModel):
     options: Optional[Any] = None
     is_required: bool
     is_conditional: bool = False
+
+class OptionModel(BaseModel):
+    choices: Optional[List[str]] = None
+    description: Optional[str] = None
+    max_selections: Optional[int] = None
+    has_other: Optional[bool] = None
+    randomize_options: Optional[bool] = None
+    locked_choices: Optional[List[str]] = None
+    has_calculator: Optional[bool] = None
+    description_alignment: Optional[str] = None
+    definitions: Optional[Any] = None
+    logic_gates: Optional[Any] = None
+    logic_gate_match_type: Optional[str] = None
+    attachments: Optional[Any] = None
+
+class QuestionModel(BaseModel):
+    id: str
+    question_text: str
+    type: str
+    order_index: int
+    is_required: bool
+    is_conditional: Optional[bool] = False
+    options: Optional[OptionModel] = None
 
 class SurveyList(BaseModel):
     id: str
@@ -353,6 +379,116 @@ async def update_survey_translation(survey_id: str, request: Request):
             
         return {"success": True}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/surveys/{survey_id}/translate-pdf")
+async def translate_pdf(survey_id: str, target_language: str = Form(...), file: UploadFile = File(...)):
+    """Extract text from a translated PDF and map it to the survey's JSON structure using AI."""
+    try:
+        # 1. Fetch original survey questions
+        survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
+        if not survey_res.data:
+            raise HTTPException(status_code=404, detail="Survey not found")
+        
+        questions_res = supabase.table("questions").select("*").eq("survey_id", survey_id).order("order_index").execute()
+        original_questions = questions_res.data
+
+        # 2. Flatten PDF
+        pdf_text = ""
+        pdf_bytes = await file.read()
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    pdf_text += text + "\\n"
+
+        # 3. AI Prompt
+        prompt = f'''You are an expert data entry assistant. You are given the original English JSON template for a survey, and the text extracted from a translated PDF in '{target_language}'.
+Your task is to map the translated text from the PDF onto the original English template structure.
+CRITICAL CONSTRAINTS:
+- Keep ALL JSON keys, IDs, and structure IDENTICAL to the English template.
+- Only translate the user-facing strings (e.g., question_text, choices, description, definitions).
+- Do not translate system keys, types, or IDs.
+- Return a JSON array of the questions.
+
+English Template:
+{json_module.dumps(original_questions, indent=2)}
+
+Translated PDF Text:
+{pdf_text}
+'''
+
+        # 4. Call Gemini
+        GOOGLE_AI_KEY = os.environ.get("GOOGLE_AI_KEY")
+        if not GOOGLE_AI_KEY:
+            raise HTTPException(status_code=500, detail="Google AI API key not configured")
+
+        # As requested, using gemini-3.5-flash
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={GOOGLE_AI_KEY}"
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            gemini_res = await client.post(gemini_url, json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.0,
+                    "maxOutputTokens": 8192,
+                    "responseMimeType": "application/json"
+                }
+            })
+
+        if gemini_res.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Gemini API error: {gemini_res.status_code} - {gemini_res.text[:500]}")
+
+        gemini_data = gemini_res.json()
+        raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # 5. Runtime Validation
+        parsed_json = json_module.loads(raw_text)
+        
+        if not isinstance(parsed_json, list):
+            if isinstance(parsed_json, dict) and "questions" in parsed_json:
+                parsed_json = parsed_json["questions"]
+            elif isinstance(parsed_json, dict) and "data" in parsed_json:
+                parsed_json = parsed_json["data"]
+            else:
+                parsed_json = [parsed_json]
+
+        validated_questions = []
+        try:
+            for q in parsed_json:
+                validated_questions.append(QuestionModel(**q).model_dump())
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Pydantic validation failed: {str(e)}")
+
+        # 6. Preserve Database Logic
+        analysis_type = f"translation_{target_language}"
+        payload = {
+            f"questions_{target_language}": validated_questions,
+        }
+        
+        existing = supabase.table("ai_analyses").select("id").eq("survey_id", survey_id).eq("analysis_type", analysis_type).execute()
+        if existing.data:
+            supabase.table("ai_analyses").update({
+                "data": payload,
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", existing.data[0]["id"]).execute()
+        else:
+            supabase.table("ai_analyses").insert({
+                "survey_id": survey_id,
+                "analysis_type": analysis_type,
+                "data": payload,
+                "updated_at": datetime.utcnow().isoformat()
+            }).execute()
+
+        return {"success": True, "data": payload}
+
+    except HTTPException:
+        raise
+    except json_module.JSONDecodeError as e:
+        raise HTTPException(status_code=422, detail=f"Invalid JSON returned by AI: {str(e)}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/surveys/{survey_id}", response_model=SurveyDetail)
