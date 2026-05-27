@@ -77,65 +77,86 @@ export default function EditSurvey() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+
+      const isDev = process.env.NODE_ENV === 'development';
+      const baseUrl = isDev ? 'http://localhost:8000' : '';
+      const url = `${baseUrl}/api/surveys/${params.id}/translation/upload?language=${language}`;
       
-      const res = await fetch(`/api/surveys/${params.id}/translation/upload?language=${language}`, {
-        method: 'POST',
-        body: formData,
-      });
+      let res: Response | null = null;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180000);
+        res = await fetch(url, { method: 'POST', body: formData, signal: controller.signal });
+        clearTimeout(timeoutId);
+      } catch (fetchErr: any) {
+        if (fetchErr.name === 'AbortError') {
+          setTranslationUploadError('Upload timed out after 3 minutes — the server may still be processing. Try refreshing the page to see if translations were saved.');
+        } else {
+          setTranslationUploadError(`Connection lost — the server may still be processing. Try refreshing the page to see if translations were saved.`);
+        }
+        setTranslationUploading(false);
+        e.target.value = '';
+        return;
+      }
       
-      if (!res.ok) {
+      if (res && !res.ok) {
         const text = await res.text();
         let errMsg = `Upload failed (HTTP ${res.status})`;
         try {
           const err = JSON.parse(text);
           errMsg = err.detail || errMsg;
         } catch {
-          errMsg += ' — ' + (text?.substring(0, 200) || res.statusText);
+          errMsg += ' — ' + (text?.substring(0, 200) || res.statusText || '');
         }
         throw new Error(errMsg);
       }
       
-      const result = await res.json();
-      
-      const transRes = await fetch(`/api/surveys/${params.id}/translation`);
-      if (transRes.ok) {
-        const transData = await transRes.json();
-        
-        if (language === 'fr') {
-          setTitleFr(transData.title_fr || '');
-          setDescriptionFr(transData.description_fr || '');
-          setQuestions(prev => prev.map((q, idx) => {
-            const translated = transData.questions_fr?.[idx];
-            if (!translated) return q;
-            return {
-              ...q,
-              question_text_fr: translated.question_text || '',
-              options_fr: translated.options?.choices || null,
-              section_description_fr: translated.options?.description || '',
-            };
-          }));
-        } else if (language === 'zh') {
-          setTitleZh(transData.title_zh || '');
-          setDescriptionZh(transData.description_zh || '');
-          setQuestions(prev => prev.map((q, idx) => {
-            const translated = transData.questions_zh?.[idx];
-            if (!translated) return q;
-            return {
-              ...q,
-              question_text_zh: translated.question_text || '',
-              options_zh: translated.options?.choices || null,
-              section_description_zh: translated.options?.description || '',
-            };
-          }));
-        }
+      if (res) {
+        await res.json();
       }
       
+      await populateTranslations();
       setTranslationUploadSuccess('Translations loaded from PDF — review and save to confirm');
-      e.target.value = '';
     } catch (err: any) {
       setTranslationUploadError(err.message || 'Failed to parse PDF');
     } finally {
       setTranslationUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const populateTranslations = async () => {
+    const transRes = await fetch(`/api/surveys/${params.id}/translation`);
+    if (transRes.ok) {
+      const transData = await transRes.json();
+      
+      if (language === 'fr') {
+        setTitleFr(transData.title_fr || '');
+        setDescriptionFr(transData.description_fr || '');
+        setQuestions(prev => prev.map((q, idx) => {
+          const translated = transData.questions_fr?.[idx];
+          if (!translated) return q;
+          return {
+            ...q,
+            question_text_fr: translated.question_text || '',
+            options_fr: translated.options?.choices || null,
+            section_description_fr: translated.options?.description || '',
+          };
+        }));
+      } else if (language === 'zh') {
+        setTitleZh(transData.title_zh || '');
+        setDescriptionZh(transData.description_zh || '');
+        setQuestions(prev => prev.map((q, idx) => {
+          const translated = transData.questions_zh?.[idx];
+          if (!translated) return q;
+          return {
+            ...q,
+            question_text_zh: translated.question_text || '',
+            options_zh: translated.options?.choices || null,
+            section_description_zh: translated.options?.description || '',
+          };
+        }));
+      }
     }
   };
 
