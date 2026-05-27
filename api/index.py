@@ -73,38 +73,54 @@ class ResponseSubmission(BaseModel):
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload a file to Supabase Storage and return the public URL."""
+    """
+    Return the public URL of an uploaded file in Supabase Storage after uploading the file
+    to the "survey-assets" bucket. Requires `file` to be a valid UploadFile object from FastAPI.
+    If the upload or URL retrieval fails, raises an HTTPException with status code 500 and error details.
+    """
     try:
+        # Get (str) path to uploaded file 
         content = await file.read()
         ext = file.filename.split('.')[-1] if file.filename else 'bin'
         filename = f"{uuid.uuid4()}.{ext}"
         path = f"uploads/{filename}"
 
+        # Upload file (path, content) to Supabase Storage
         supabase.storage.from_("survey-assets").upload(
             path,
             content,
             file_options={"content-type": file.content_type or "application/octet-stream"}
         )
 
+        # Get public URL from Supabase for the uploaded file 
         public_url = supabase.storage.from_("survey-assets").get_public_url(path)
         return {"url": public_url, "filename": file.filename}
-    except Exception as e:
+    except Exception as e: # Handles HTTPException and any other exceptions 
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/surveys", response_model=List[SurveyList])
 async def get_surveys(include_inactive: bool = False):
-    """Get surveys and their response counts"""
+    """
+    Returns a list of surveys with their metadata and response counts. 
+    If `include_inactive` is False, only active surveys are returned. 
+    If an exception occurs during the database query, an HTTPException with 
+    status code 500 is raised, containing the error details.
+    """
     try:
+        # Fetch surveys and their respective counts of related response_sessions using PostgREST's relation counting
         query = supabase.table("surveys").select("*, response_sessions(count)")
         if not include_inactive:
             query = query.eq("is_active", True)
             
         response = query.execute()
         
+        # Create a list of surveys by setting the response_count field based on the count from the joined response_sessions relation
+        # and adding each row to the surveys list to be returned. 
         surveys = []
         for row in response.data:
+            # Each row is expected to have a "response_sessions" key with a list containing a dict with "count"
             # Safely extract count from the joined response_sessions relation
             # PostgREST returns [{"count": X}] for relation counts
             count = 0
@@ -129,7 +145,13 @@ async def get_surveys(include_inactive: bool = False):
 
 @app.get("/api/surveys/{survey_id}", response_model=SurveyDetail)
 async def get_survey(survey_id: str):
-    """Get a specific survey with its questions"""
+    """
+    Returns a specific survey (dictionary) with its list of questions. 
+    
+    If the query fails or the survey is not found, raises an HTTPException with status code 404 or 500 and error details.
+    If an HTTPException is encountered, it is re-raised to be handled by FastAPI's exception handlers.
+    If any other exception occurs, it is caught and an HTTPException with status code 500 is raised, containing the error details.
+    Requires `survey_id` is a non empty string."""
     try:
         # Fetch survey
         survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
@@ -168,7 +190,12 @@ class SurveyCreate(BaseModel):
 
 @app.post("/api/surveys", response_model=SurveyDetail)
 async def create_survey(survey: SurveyCreate):
-    """Create a new survey and its questions"""
+    """
+    Returns the created survey as a dictionary with its list of questions 
+    after creating and inserting a new survey and its questions into the database.
+    If the insert operation fails, raises an HTTPException with status code 500 and error details.
+    Requires `survey` to be a valid SurveyCreate object.
+    """
     try:
         has_been_published = survey.is_active
 
@@ -201,7 +228,7 @@ async def create_survey(survey: SurveyCreate):
             
             questions_res = supabase.table("questions").insert(questions_to_insert).execute()
             created_survey["questions"] = questions_res.data
-        else:
+        else: # handle empty questions list case 
             created_survey["questions"] = []
             
         # 3. Append response_count to match SurveyDetail shape although it's 0 initially
@@ -213,7 +240,17 @@ async def create_survey(survey: SurveyCreate):
 
 @app.post("/api/surveys/{survey_id}/duplicate", response_model=SurveyDetail)
 async def duplicate_survey(survey_id: str):
-    """Duplicate an existing survey and its questions"""
+    """
+    Returns the duplicated survey as a dictionary with its list of questions 
+    after duplicating an existing survey and its questions in the database.
+
+    Inserts this duplicated survey as a new survey with a new unique ID, 
+    appending " (Copy)" to the title, and setting it to inactive by default, 
+    into the database. 
+
+    If the original survey is not found, raises an HTTPException with status code 404.
+    If any error occurs during the duplication process, raises an HTTPException with status code 500 and error details.
+    """
     try:
         # 1. Fetch original survey
         survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
@@ -269,7 +306,15 @@ async def duplicate_survey(survey_id: str):
 
 @app.get("/api/surveys/{survey_id}/translation")
 async def get_survey_translation(survey_id: str):
-    """Fetch the translated questions if they exist."""
+    """
+    Returns (dictionary) translated questions, titles, and descriptions for French and Chinese 
+    translations if they exist in the database for the given survey_id. 
+    
+    If the translation does not exist, returns a dictionary of None vals.
+
+    Raises an HTTPException with status code 500 and error details if any error occurs during the database query.
+    Requires survey_id is a non-empty string.
+    """
     try:
         res_fr = supabase.table("ai_analyses").select("data").eq("survey_id", survey_id).eq("analysis_type", "translation_fr").execute()
         res_zh = supabase.table("ai_analyses").select("data").eq("survey_id", survey_id).eq("analysis_type", "translation_zh").execute()
@@ -303,8 +348,20 @@ async def get_survey_translation(survey_id: str):
 
 @app.put("/api/surveys/{survey_id}/translation")
 async def update_survey_translation(survey_id: str, request: Request):
-    """Manually update the translated questions JSON."""
+    """
+    Returns a dictionary with success status after manually updating the 
+    translated questions, titles, and descriptions for French and Chinese 
+    translations for a given survey_id in the database. If the French translation
+    already exists, update the data. If the French translation does not already exist, 
+    create a new entry in the database. The same logic applies for the Chinese translation.
+
+    If any exception occurs during the database query, raises an HTTPException with status code 500 and error details.
+    Requires that survey_id is a non-empty string and request contains a valid JSON body 
+    with the translated questions, titles, and descriptions for both French and Chinese translations.
+    """
     try:
+        # Get JSON body from request with updated translated questions, titles, and descriptions 
+        # for both French and Chinese translations.
         body = await request.json()
         
         # FR Translation
