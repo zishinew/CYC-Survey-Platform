@@ -84,8 +84,15 @@ export default function EditSurvey() {
       });
       
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Upload failed');
+        const text = await res.text();
+        let errMsg = `Upload failed (HTTP ${res.status})`;
+        try {
+          const err = JSON.parse(text);
+          errMsg = err.detail || errMsg;
+        } catch {
+          errMsg += ' — ' + (text?.substring(0, 200) || res.statusText);
+        }
+        throw new Error(errMsg);
       }
       
       const result = await res.json();

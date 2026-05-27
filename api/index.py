@@ -17,7 +17,7 @@ import json as json_module
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # Setup CORS
 app.add_middleware(
@@ -360,6 +360,29 @@ async def update_survey_translation(survey_id: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/test-gemini")
+async def test_gemini():
+    """Quick test endpoint to verify Gemini API connectivity."""
+    GOOGLE_AI_KEY = os.environ.get("GOOGLE_AI_KEY")
+    if not GOOGLE_AI_KEY:
+        raise HTTPException(status_code=500, detail="GOOGLE_AI_KEY not set")
+    
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GOOGLE_AI_KEY}"
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.post(gemini_url, json={
+                "contents": [{"parts": [{"text": "Say hello in French."}]}],
+                "generationConfig": {"maxOutputTokens": 50}
+            })
+        return {
+            "status": res.status_code,
+            "body_preview": str(res.text)[:500] if res.text else "empty",
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/surveys/{survey_id}/translation/upload")
 async def upload_translation_pdf(survey_id: str, language: str = "fr", file: UploadFile = File(...)):
     """Upload a PDF containing translated survey questions and auto-populate translations."""
@@ -371,11 +394,14 @@ async def upload_translation_pdf(survey_id: str, language: str = "fr", file: Upl
         raise HTTPException(status_code=400, detail="Language must be 'fr' or 'zh'")
     
     try:
+        print(f"[upload_translation_pdf] Starting upload for survey={survey_id}, language={language}, filename={file.filename}")
         content = await file.read()
+        print(f"[upload_translation_pdf] Read {len(content)} bytes")
         if len(content) > 10 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="File too large (max 10MB)")
         
         survey_res = supabase.table("surveys").select("*").eq("id", survey_id).execute()
+        print(f"[upload_translation_pdf] Survey lookup done, found={bool(survey_res.data)}")
         if not survey_res.data:
             raise HTTPException(status_code=404, detail="Survey not found")
         survey = survey_res.data[0]
@@ -387,11 +413,14 @@ async def upload_translation_pdf(survey_id: str, language: str = "fr", file: Upl
             raise HTTPException(status_code=400, detail="Survey has no questions")
         
         extracted_text = ""
+        print(f"[upload_translation_pdf] Opening PDF with pdfplumber...")
         with pdfplumber.open(io.BytesIO(content)) as pdf:
+            print(f"[upload_translation_pdf] PDF opened, pages={len(pdf.pages)}")
             for page in pdf.pages:
                 page_text = page.extract_text()
                 if page_text:
                     extracted_text += page_text + "\n"
+        print(f"[upload_translation_pdf] Extracted {len(extracted_text)} chars of text")
         
         if not extracted_text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from PDF")
@@ -421,7 +450,7 @@ Title: {survey['title']}
 Description: {survey.get('description', '')}
 
 Questions (in exact order, with index):
-{json_module.dumps(reference_questions, indent=2, ensure_ascii=False)}
+{json_module.dumps(reference_questions, ensure_ascii=False)}
 
 === PDF TEXT ({language_name} Translation) ===
 {extracted_text}
@@ -460,6 +489,7 @@ Return ONLY the JSON object, no markdown wrapping or extra text."""
         if not GOOGLE_AI_KEY:
             raise HTTPException(status_code=500, detail="Google AI API key not configured")
         
+        print(f"[upload_translation_pdf] Calling Gemini API with prompt length={len(prompt)}")
         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GOOGLE_AI_KEY}"
         
         async with httpx.AsyncClient(timeout=120.0) as client:
@@ -467,16 +497,18 @@ Return ONLY the JSON object, no markdown wrapping or extra text."""
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
                     "temperature": 0.1,
-                    "maxOutputTokens": 8192,
-                    "responseMimeType": "application/json"
+                    "maxOutputTokens": 65536
                 }
             })
         
+        print(f"[upload_translation_pdf] Gemini response status={gemini_res.status_code}", flush=True)
         if gemini_res.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Gemini API error: {gemini_res.status_code} - {gemini_res.text[:500]}")
         
         gemini_data = gemini_res.json()
+        print(f"[upload_translation_pdf] Gemini JSON parsed, keys={list(gemini_data.keys())}", flush=True)
         raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+        print(f"[upload_translation_pdf] Raw text length={len(raw_text)}", flush=True)
         
         cleaned = raw_text.strip()
         if cleaned.startswith("```"):
@@ -485,7 +517,14 @@ Return ONLY the JSON object, no markdown wrapping or extra text."""
                 cleaned = cleaned[:-3]
             cleaned = cleaned.strip()
         
-        parsed = json_module.loads(cleaned)
+        print(f"[upload_translation_pdf] Cleaned text length={len(cleaned)}, starts_with={cleaned[:80].replace(chr(10), ' ')}", flush=True)
+        try:
+            parsed = json_module.loads(cleaned)
+        except Exception as e:
+            print(f"[upload_translation_pdf] JSON parse FAILED: {e}", flush=True)
+            print(f"[upload_translation_pdf] First 500 chars: {cleaned[:500]}", flush=True)
+            raise
+        print(f"[upload_translation_pdf] JSON parsed successfully, questions_count={len(parsed.get('questions', []))}", flush=True)
         
         if "questions" not in parsed:
             raise HTTPException(status_code=502, detail="Could not parse translations from PDF — missing questions in AI response")
@@ -542,6 +581,7 @@ Return ONLY the JSON object, no markdown wrapping or extra text."""
                 "updated_at": datetime.utcnow().isoformat()
             }).execute()
         
+        print(f"[upload_translation_pdf] Successfully saved translations, {len(questions_translated)} questions")
         return {"success": True, "data": payload}
         
     except HTTPException:
