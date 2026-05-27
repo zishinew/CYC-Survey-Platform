@@ -11,6 +11,7 @@ from datetime import datetime
 import io
 import traceback
 import math
+import random
 # Initialize FastAPI
 app = FastAPI(title="CYC Survey Platform API")
 
@@ -694,6 +695,49 @@ def calculate_mode(counts):
         elif v == max_val and max_val > 0:
             modes.append(k)
     return {"modes": modes, "count": max_val} if modes else None
+
+async def _get_random_email_position():
+    """
+    Returns a randomly generated integer `x` such that 0 <= x <= length of collection of emails.
+    Raises an exception if the collection of emails is empty or if any error occurs during the 
+    retrieval of total number of emails from the database.
+    """
+    # Queries the database to get the total count of emails in the response_sessions table
+    try:
+        count_res = supabase.table("response_sessions").select("id", count="exact").execute()
+        total_emails = getattr(count_res, "count", None)
+        if total_emails is None:
+            total_emails = len(count_res.data) if count_res.data else 0
+
+        if total_emails == 0:
+            raise ValueError("No emails found in response_sessions for raffle selection.")
+
+        return random.randint(0, total_emails - 1)
+    except Exception as e:
+        raise Exception(f"Failed to determine raffle position: {e}")
+
+
+@app.get("/api/raffle-email")
+async def get_raffle_email():
+    """
+    Returns a randomly selected email from the response_sessions table for raffle purposes.
+    Handles any exceptions that may occur during the database query. 
+    """
+    try:
+        print("in try")
+        position = _get_random_email_position()
+        response = supabase.table("response_sessions").select("email").order("id").range(position, position).execute()
+        if not response.data or not response.data[0]:
+            raise ValueError("No email row returned for raffle selection.")
+
+        email = response.data[0].get("email")
+        if not email:
+            raise ValueError("Selected raffle row does not contain an email.")
+
+        return {"email": email}
+    except Exception as e:
+        print("in exception")
+        raise Exception(f"Failed to select raffle email: {e}")
 
 @app.get("/api/surveys/{survey_id}/results")
 async def get_survey_results(survey_id: str):

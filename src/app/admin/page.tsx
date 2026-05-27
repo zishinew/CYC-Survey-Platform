@@ -12,6 +12,9 @@ export default function AdminDashboard() {
   const [shareLabel, setShareLabel] = useState('');
   const [generatingLink, setGeneratingLink] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [raffleEmail, setRaffleEmail] = useState<string | null>(null);
+  const [raffleLoading, setRaffleLoading] = useState(false);
+  const [raffleError, setRaffleError] = useState<string | null>(null);
   const router = useRouter();
 
   const fetchSurveys = () => {
@@ -101,6 +104,32 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSelectRaffleEmail = async () => {
+    setRaffleError(null);
+    setRaffleLoading(true);
+    try {
+      const res = await fetch('/api/raffle-email');
+      if (!res.ok) {
+        let errMsg = 'Failed to fetch raffle email.';
+        try {
+          const errData = await res.json();
+          errMsg = errData?.error || errData?.message || JSON.stringify(errData);
+        } catch (_e) {
+          /* ignore parse error */
+        }
+        throw new Error(errMsg);
+      }
+      const data = await res.json();
+      const email = typeof data === 'string' ? data : data?.email ?? null;
+      setRaffleEmail(email);
+    } catch (err: any) {
+      setRaffleEmail(null);
+      setRaffleError(err?.message || 'Unable to select raffle email.');
+    } finally {
+      setRaffleLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('cyc_admin_auth');
     router.push('/admin/login');
@@ -166,17 +195,39 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-[var(--color-cyc-secondary)] dark:text-slate-100">Dashboard Overview</h1>
           <p className="text-gray-500 dark:text-slate-500 mt-1">Manage your surveys and view engagement metrics.</p>
         </div>
-        <div className="flex space-x-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
           <Link href="/admin/create" className="btn-primary flex items-center">
             <PlusCircle className="w-4 h-4 mr-2" />
             New Survey
           </Link>
+          <button
+            onClick={handleSelectRaffleEmail}
+            disabled={raffleLoading}
+            className="px-4 py-2 bg-[var(--color-cyc-secondary)] text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-all whitespace-nowrap flex items-center justify-center"
+          >
+            {raffleLoading ? 'Picking...' : 'Pick Raffle Email'}
+          </button>
           <button onClick={handleLogout} className="px-4 py-2 text-red-600 hover:bg-red-50 rounded flex items-center transition-colors">
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </button>
         </div>
       </div>
+
+      {(raffleEmail || raffleError) && (
+        <div className="mb-6 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 p-4">
+          {raffleEmail && (
+            <div className="text-sm text-gray-700 dark:text-gray-100">
+              <span className="font-semibold">Selected raffle email:</span> {raffleEmail}
+            </div>
+          )}
+          {raffleError && (
+            <div className="text-sm text-red-600 dark:text-red-400">
+              <span className="font-semibold">Raffle error:</span> {raffleError}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden">
         <table className="min-w-full divide-y divide-gray-200">
